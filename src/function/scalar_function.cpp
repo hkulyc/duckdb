@@ -24,8 +24,7 @@ ScalarFunction::ScalarFunction(string name, vector<LogicalType> arguments, Logic
     : BaseScalarFunction(std::move(name), std::move(arguments), std::move(return_type), side_effects,
                          std::move(varargs), null_handling),
       function(std::move(function)), function_info(std::move(function_info)), bind(bind), init_local_state(init_local_state), dependency(dependency),
-      statistics(statistics), serialize(nullptr), deserialize(nullptr), format_serialize(nullptr),
-      format_deserialize(nullptr) {
+      statistics(statistics), serialize(nullptr), deserialize(nullptr) {
 	has_scalar_funcition_info = true;
 }
 
