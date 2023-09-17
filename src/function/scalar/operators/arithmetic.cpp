@@ -71,6 +71,9 @@ void GetScalarIntegerFunctionInfoTemplate(PhysicalType type, std::vector<std::st
 	case PhysicalType::INT64:
 		template_args = {"int64_t", "int64_t", "int64_t"};
 		break;
+	case PhysicalType::INT128:
+		template_args = {"hugeint_t", "hugeint_t", "hugeint_t"};
+		break;
 	case PhysicalType::UINT8:
 		template_args = {"uint8_t", "uint8_t", "uint8_t"};
 		break;
