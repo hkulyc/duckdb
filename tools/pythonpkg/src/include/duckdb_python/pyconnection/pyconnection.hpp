@@ -16,7 +16,7 @@
 #include "duckdb_python/pyrelation.hpp"
 #include "duckdb_python/pytype.hpp"
 #include "duckdb_python/path_like.hpp"
-#include "duckdb/execution/operator/persistent/csv_reader_options.hpp"
+#include "duckdb/execution/operator/scan/csv/csv_reader_options.hpp"
 #include "duckdb_python/pyfilesystem.hpp"
 #include "duckdb_python/pybind11/registered_py_object.hpp"
 #include "duckdb/function/scalar_function.hpp"
@@ -170,6 +170,8 @@ public:
 	shared_ptr<DuckDBPyConnection> Cursor();
 
 	Optional<py::list> GetDescription();
+
+	int GetRowcount();
 
 	// these should be functions on the result but well
 	Optional<py::tuple> FetchOne();

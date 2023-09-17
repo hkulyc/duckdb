@@ -245,6 +245,7 @@ static void InitializeConnectionMethods(py::class_<DuckDBPyConnection, shared_pt
 	         py::arg("query"))
 	    .def_property_readonly("description", &DuckDBPyConnection::GetDescription,
 	                           "Get result set attributes, mainly column names")
+	    .def_property_readonly("rowcount", &DuckDBPyConnection::GetRowcount, "Get result set row count")
 	    .def("install_extension", &DuckDBPyConnection::InstallExtension, "Install an extension by name",
 	         py::arg("extension"), py::kw_only(), py::arg("force_install") = false)
 	    .def("load_extension", &DuckDBPyConnection::LoadExtension, "Load an installed extension", py::arg("extension"));
@@ -385,7 +386,7 @@ unique_ptr<QueryResult> DuckDBPyConnection::CompletePendingQuery(PendingQueryRes
 				throw std::runtime_error("Query interrupted");
 			}
 		}
-	} while (execution_result == PendingExecutionResult::RESULT_NOT_READY);
+	} while (!PendingQueryResult::IsFinished(execution_result));
 	if (execution_result == PendingExecutionResult::EXECUTION_ERROR) {
 		pending_query.ThrowError();
 	}
@@ -709,7 +710,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(
 	if (!connection) {
 		throw ConnectionException("Connection has already been closed");
 	}
-	BufferedCSVReaderOptions options;
+	CSVReaderOptions options;
 	auto path_like = GetPathLike(name_p);
 	auto &name = path_like.str;
 	auto file_like_object_wrapper = std::move(path_like.dependency);
@@ -752,7 +753,7 @@ unique_ptr<DuckDBPyRelation> DuckDBPyConnection::ReadCSV(
 	if (options.has_header) {
 		// 'options' is only used to initialize the ReadCSV relation
 		// we also need to set this in the arguments passed to the function
-		read_csv.AddNamedParameter("header", Value::BOOLEAN(options.header));
+		read_csv.AddNamedParameter("header", Value::BOOLEAN(options.dialect_options.header));
 	}
 
 	if (options.compression != FileCompressionType::AUTO_DETECT) {
@@ -1189,6 +1190,10 @@ Optional<py::list> DuckDBPyConnection::GetDescription() {
 		return py::none();
 	}
 	return result->Description();
+}
+
+int DuckDBPyConnection::GetRowcount() {
+	return -1;
 }
 
 void DuckDBPyConnection::Close() {
