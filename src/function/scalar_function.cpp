@@ -130,7 +130,8 @@ std::string ScalarFunctionInfo::LogicalTypeIdToCppType(LogicalTypeId type) {
       // case LogicalTypeId::MAP:
       //       return "map_t";
       default:
-            throw NotImplementedException("Unimplemented type for C++ code generation");
+            printf("Unimplemented type for C++ code generation\n");
+            return "UNIMPLEMENTED";
       }
 }
 
@@ -169,7 +170,8 @@ std::string ScalarFunctionInfo::PhysicalTypeIdToCppType(PhysicalType type_id){
       // case PhysicalType::MAP:
       //       return "map_t";
       default:
-            throw NotImplementedException("Unimplemented type for C++ code generation");
+            printf("Unimplemented type for C++ code generation\n");
+            return "UNIMPLEMENTED";
       }
 }
 
