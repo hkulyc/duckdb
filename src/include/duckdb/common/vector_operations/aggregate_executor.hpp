@@ -192,6 +192,43 @@ private:
 		}
 	}
 
+	template <class STATE_TYPE, class A_TYPE, class B_TYPE, class C_TYPE, class OP>
+	static inline void TrinaryScatterLoop(const A_TYPE *__restrict adata, AggregateInputData &aggr_input_data,
+	                                      const B_TYPE *__restrict bdata, const C_TYPE *__restrict cdata,
+	                                      STATE_TYPE **__restrict states, idx_t count,
+	                                      const SelectionVector &asel, const SelectionVector &bsel,
+	                                      const SelectionVector &csel, const SelectionVector &ssel,
+	                                      ValidityMask &avalidity, ValidityMask &bvalidity,
+	                                      ValidityMask &cvalidity) {
+		AggregateTrinaryInput input(aggr_input_data, avalidity, bvalidity, cvalidity);
+		if (OP::IgnoreNull() && (!avalidity.AllValid() || !bvalidity.AllValid() || !cvalidity.AllValid())) {
+			// potential NULL values and NULL values are ignored
+			for (idx_t i = 0; i < count; i++) {
+				input.lidx = asel.get_index(i);
+				input.midx = bsel.get_index(i);
+				input.ridx = csel.get_index(i);
+				auto sidx = ssel.get_index(i);
+				if (avalidity.RowIsValid(input.lidx) && bvalidity.RowIsValid(input.midx) &&
+				    cvalidity.RowIsValid(input.ridx)) {
+					OP::template Operation<A_TYPE, B_TYPE, C_TYPE, STATE_TYPE, OP>(*states[sidx], adata[input.lidx],
+					                                                                 bdata[input.midx],
+					                                                                 cdata[input.ridx], input);
+				}
+			}
+		} else {
+			// quick path: no NULL values or NULL values are not ignored
+			for (idx_t i = 0; i < count; i++) {
+				input.lidx = asel.get_index(i);
+				input.midx = bsel.get_index(i);
+				input.ridx = csel.get_index(i);
+				auto sidx = ssel.get_index(i);
+				OP::template Operation<A_TYPE, B_TYPE, C_TYPE, STATE_TYPE, OP>(*states[sidx], adata[input.lidx],
+				                                                                 bdata[input.midx],
+				                                                                 cdata[input.ridx], input);
+			}
+		}
+	}
+
 	template <class STATE_TYPE, class A_TYPE, class B_TYPE, class OP>
 	static inline void BinaryUpdateLoop(const A_TYPE *__restrict adata, AggregateInputData &aggr_input_data,
 	                                    const B_TYPE *__restrict bdata, STATE_TYPE *__restrict state, idx_t count,
@@ -322,6 +359,22 @@ public:
 		BinaryUpdateLoop<STATE_TYPE, A_TYPE, B_TYPE, OP>(
 		    UnifiedVectorFormat::GetData<A_TYPE>(adata), aggr_input_data, UnifiedVectorFormat::GetData<B_TYPE>(bdata),
 		    (STATE_TYPE *)state, count, *adata.sel, *bdata.sel, adata.validity, bdata.validity);
+	}
+
+	template <class STATE_TYPE, class A_TYPE, class B_TYPE, class C_TYPE, class OP>
+	static void TrinaryScatter(AggregateInputData &aggr_input_data, Vector &a, Vector &b, Vector &c, Vector &states,
+	                           idx_t count) {
+		UnifiedVectorFormat adata, bdata, cdata, sdata;
+
+		a.ToUnifiedFormat(count, adata);
+		b.ToUnifiedFormat(count, bdata);
+		c.ToUnifiedFormat(count, cdata);
+		states.ToUnifiedFormat(count, sdata);
+
+		TrinaryScatterLoop<STATE_TYPE, A_TYPE, B_TYPE, C_TYPE, OP>(
+		    UnifiedVectorFormat::GetData<A_TYPE>(adata), aggr_input_data, UnifiedVectorFormat::GetData<B_TYPE>(bdata),
+		    UnifiedVectorFormat::GetData<C_TYPE>(cdata), (STATE_TYPE **)sdata.data, count, *adata.sel, *bdata.sel,
+		    *cdata.sel, *sdata.sel, adata.validity, bdata.validity, cdata.validity);
 	}
 
 	template <class STATE_TYPE, class OP>

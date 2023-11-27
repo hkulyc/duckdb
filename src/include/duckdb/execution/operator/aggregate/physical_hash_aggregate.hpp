@@ -84,6 +84,9 @@ public:
 	unsafe_vector<idx_t> non_distinct_filter;
 	unsafe_vector<idx_t> distinct_filter;
 
+	//! Whether or not all aggregates are combinable
+	bool all_combinable = true;
+
 	unordered_map<Expression *, size_t> filter_indexes;
 
 public:

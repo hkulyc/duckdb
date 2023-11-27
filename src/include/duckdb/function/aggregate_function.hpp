@@ -234,6 +234,14 @@ public:
 		                                                            count);
 	}
 
+	template <class STATE_TYPE, class A_TYPE, class B_TYPE, class C_TYPE, class OP>
+	static inline void TrinaryScatterUpdate(Vector inputs[], AggregateInputData &aggr_input_data, idx_t input_count,
+	                                        Vector &states, idx_t count) {
+		D_ASSERT(input_count == 3);
+		AggregateExecutor::TrinaryScatter<STATE_TYPE, A_TYPE, B_TYPE, C_TYPE, OP>(aggr_input_data, inputs[0], inputs[1],
+		                                                                          inputs[2], states, count);
+	}
+
 	template <class STATE, class A_TYPE, class B_TYPE, class OP>
 	static void BinaryUpdate(Vector inputs[], AggregateInputData &aggr_input_data, idx_t input_count, data_ptr_t state,
 	                         idx_t count) {
