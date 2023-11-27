@@ -157,6 +157,19 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalAggregate 
 
 	plan = ExtractAggregateExpressions(std::move(plan), op.expressions, op.groups);
 
+	bool all_combinable = true;
+	for (auto &expression : op.expressions) {
+		auto &aggregate = expression->Cast<BoundAggregateExpression>();
+		if (!aggregate.function.combine) {
+			all_combinable = false;
+			break;
+		}
+	}
+	if(all_combinable)
+		printf("all combinable\n");
+	else
+		printf("not all combinable\n");
+
 	if (op.groups.empty() && op.grouping_sets.size() <= 1) {
 		// no groups, check if we can use a simple aggregation
 		// special case: aggregate entire columns together
@@ -170,24 +183,32 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalAggregate 
 			}
 		}
 		if (use_simple_aggregation) {
+			printf("Case 1\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalUngroupedAggregate>(op.types, std::move(op.expressions),
 			                                                                       op.estimated_cardinality);
+			((PhysicalUngroupedAggregate*) groupby.get())->allCombinable = all_combinable;																	   
 		} else {
+			printf("Case 2\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalHashAggregate>(
 			    context, op.types, std::move(op.expressions), op.estimated_cardinality);
+			((PhysicalHashAggregate*) groupby.get())->allCombinable = all_combinable;
 		}
 	} else {
 		// groups! create a GROUP BY aggregator
 		// use a perfect hash aggregate if possible
 		vector<idx_t> required_bits;
 		if (CanUsePerfectHashAggregate(context, op, required_bits)) {
+			printf("Case 3\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalPerfectHashAggregate>(
 			    context, op.types, std::move(op.expressions), std::move(op.groups), std::move(op.group_stats),
 			    std::move(required_bits), op.estimated_cardinality);
+			((PhysicalPerfectHashAggregate*) groupby.get())->allCombinable = all_combinable;
 		} else {
+			printf("Case 4\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalHashAggregate>(
 			    context, op.types, std::move(op.expressions), std::move(op.groups), std::move(op.grouping_sets),
 			    std::move(op.grouping_functions), op.estimated_cardinality);
+			((PhysicalHashAggregate*) groupby.get())->allCombinable = all_combinable;
 		}
 	}
 	groupby->children.push_back(std::move(plan));
