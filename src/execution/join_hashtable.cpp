@@ -44,7 +44,7 @@ JoinHashTable::JoinHashTable(BufferManager &buffer_manager_p, const vector<JoinC
 	// Types for the layout
 	vector<LogicalType> layout_types(condition_types);
 	layout_types.insert(layout_types.end(), build_types.begin(), build_types.end());
-	if (IsRightOuterJoin(join_type)) {
+	if (PropogatesBuildSide(join_type)) {
 		// full/right outer joins need an extra bool to keep track of whether or not a tuple has found a matching entry
 		// we place the bool before the NEXT pointer
 		layout_types.emplace_back(LogicalType::BOOLEAN);
@@ -223,7 +223,7 @@ void JoinHashTable::Build(PartitionedTupleDataAppendState &append_state, DataChu
 		source_chunk.data[col_offset + i].Reference(payload.data[i]);
 	}
 	col_offset += payload.ColumnCount();
-	if (IsRightOuterJoin(join_type)) {
+	if (PropogatesBuildSide(join_type)) {
 		// for FULL/RIGHT OUTER joins initialize the "found" boolean to false
 		source_chunk.data[col_offset].Reference(vfound);
 		col_offset++;
@@ -234,7 +234,44 @@ void JoinHashTable::Build(PartitionedTupleDataAppendState &append_state, DataChu
 	if (added_count < keys.size()) {
 		source_chunk.Slice(*current_sel, added_count);
 	}
-	sink_collection->Append(append_state, source_chunk);
+	if (added_count == 0) {
+		return;
+	}
+
+	// hash the keys and obtain an entry in the list
+	// note that we only hash the keys used in the equality comparison
+	Hash(keys, *current_sel, added_count, hash_values);
+
+	// Re-reference and ToUnifiedFormat the hash column after computing it
+	source_chunk.data[col_offset].Reference(hash_values);
+	hash_values.ToUnifiedFormat(source_chunk.size(), append_state.chunk_state.vector_data.back().unified);
+
+	// We already called TupleDataCollection::ToUnifiedFormat, so we can AppendUnified here
+	sink_collection->AppendUnified(append_state, source_chunk, *current_sel, added_count);
+}
+
+idx_t JoinHashTable::PrepareKeys(DataChunk &keys, vector<TupleDataVectorFormat> &vector_data,
+                                 const SelectionVector *&current_sel, SelectionVector &sel, bool build_side) {
+	// figure out which keys are NULL, and create a selection vector out of them
+	current_sel = FlatVector::IncrementalSelectionVector();
+	idx_t added_count = keys.size();
+	if (build_side && (PropogatesBuildSide(join_type))) {
+		// in case of a right or full outer join, we cannot remove NULL keys from the build side
+		return added_count;
+	}
+
+	for (idx_t col_idx = 0; col_idx < keys.ColumnCount(); col_idx++) {
+		if (!null_values_are_equal[col_idx]) {
+			auto &col_key_data = vector_data[col_idx].unified;
+			if (col_key_data.validity.AllValid()) {
+				continue;
+			}
+			added_count = FilterNullValues(col_key_data, *current_sel, added_count, sel);
+			// null values are NOT equal for this column, filter them out
+			current_sel = &sel;
+		}
+	}
+	return added_count;
 }
 
 template <bool PARALLEL>
@@ -495,7 +532,7 @@ void ScanStructure::NextInnerJoin(DataChunk &keys, DataChunk &left, DataChunk &r
 
 	idx_t result_count = ScanInnerJoin(keys, result_vector);
 	if (result_count > 0) {
-		if (IsRightOuterJoin(ht.join_type)) {
+		if (PropogatesBuildSide(ht.join_type)) {
 			// full/right outer join: mark join matches as FOUND in the HT
 			auto ptrs = FlatVector::GetData<data_ptr_t>(pointers);
 			for (idx_t i = 0; i < result_count; i++) {
