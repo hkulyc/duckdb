@@ -2557,9 +2557,9 @@ const char* EnumUtil::ToChars<JoinType>(JoinType value) {
 		return "INNER";
 	case JoinType::OUTER:
 		return "FULL";
-	case JoinType::LEFT_SEMI:
+	case JoinType::SEMI:
 		return "SEMI";
-	case JoinType::LEFT_ANTI:
+	case JoinType::ANTI:
 		return "ANTI";
 	case JoinType::MARK:
 		return "MARK";
@@ -2592,10 +2592,10 @@ JoinType EnumUtil::FromString<JoinType>(const char *value) {
 		return JoinType::OUTER;
 	}
 	if (StringUtil::Equals(value, "SEMI")) {
-		return JoinType::LEFT_SEMI;
+		return JoinType::SEMI;
 	}
 	if (StringUtil::Equals(value, "ANTI")) {
-		return JoinType::LEFT_ANTI;
+		return JoinType::ANTI;
 	}
 	if (StringUtil::Equals(value, "MARK")) {
 		return JoinType::MARK;
