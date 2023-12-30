@@ -83,8 +83,26 @@ void ScalarFunction::NopFunction(DataChunk &input, ExpressionState &state, Vecto
 	result.Reference(input.data[0]);
 }
 
-std::string ScalarFunctionInfo::LogicalTypeIdToCppType(LogicalTypeId type) {
-      switch (type) {
+std::string ScalarFunctionInfo::DecimalTypeToCppType(int width, int scale){
+      if(width >= 1 and width <= 4){
+            return "int16_t";
+      }
+      else if(width >= 5 and width <= 9){
+            return "int32_t";
+      }
+      else if(width >= 10 and width <= 18){
+            return "int64_t";
+      }
+      else if(width >= 19 and width <= 38){
+            return "hugeint_t";
+      }
+      else{
+            throw std::runtime_error("DECIMAL type width must be between 1 and 38");
+      }
+}
+
+std::string ScalarFunctionInfo::LogicalTypeToCppType(const LogicalType &logical_type) {
+      switch (logical_type.id()) {
       case LogicalTypeId::BOOLEAN:
             return "bool";
       case LogicalTypeId::TINYINT:
@@ -109,8 +127,8 @@ std::string ScalarFunctionInfo::LogicalTypeIdToCppType(LogicalTypeId type) {
             return "float";
       case LogicalTypeId::DOUBLE:
             return "double";
-      // case LogicalTypeId::DECIMAL:
-      //       return "decimal_t";
+      case LogicalTypeId::DECIMAL:
+            return DecimalTypeToCppType(DecimalType::GetWidth(logical_type), DecimalType::GetScale(logical_type));
       // case LogicalTypeId::DATE:
       //       return "date_t";
       // case LogicalTypeId::TIME:

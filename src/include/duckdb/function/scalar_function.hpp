@@ -164,7 +164,8 @@ public:
 		*this = other;
 	}
 
-	static DUCKDB_API std::string LogicalTypeIdToCppType(LogicalTypeId type_id);
+	static DUCKDB_API std::string DecimalTypeToCppType(int width, int scale);
+	static DUCKDB_API std::string LogicalTypeToCppType(const LogicalType &logical_type);
 	static DUCKDB_API std::string PhysicalTypeIdToCppType(PhysicalType type_id);
 	/**
 	 * get the string representation of the function

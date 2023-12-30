@@ -228,25 +228,25 @@ BoundCastInfo DefaultCasts::DecimalCastSwitch(BindCastInput &input, const Logica
 	// now switch on the result type
 	switch (target.id()) {
 	case LogicalTypeId::BOOLEAN:
-		return BoundCastInfo(FromDecimalCast<bool>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "bool"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<bool>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "bool"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::TINYINT:
-		return BoundCastInfo(FromDecimalCast<int8_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "int8_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<int8_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "int8_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::SMALLINT:
-		return BoundCastInfo(FromDecimalCast<int16_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "int16_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<int16_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "int16_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::INTEGER:
-		return BoundCastInfo(FromDecimalCast<int32_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "int32_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<int32_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "int32_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::BIGINT:
-		return BoundCastInfo(FromDecimalCast<int64_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "int64_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<int64_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "int64_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::UTINYINT:
-		return BoundCastInfo(FromDecimalCast<uint8_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "uint8_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<uint8_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "uint8_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::USMALLINT:
-		return BoundCastInfo(FromDecimalCast<uint16_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "uint16_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<uint16_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "uint16_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::UINTEGER:
-		return BoundCastInfo(FromDecimalCast<uint32_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "uint32_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<uint32_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "uint32_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::UBIGINT:
-		return BoundCastInfo(FromDecimalCast<uint64_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "uint64_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<uint64_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "uint64_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::HUGEINT:
-		return BoundCastInfo(FromDecimalCast<hugeint_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
+		return BoundCastInfo(FromDecimalCast<hugeint_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	// udf_todo: decimal to decimal conversion
 	case LogicalTypeId::DECIMAL: {
 		// decimal to decimal cast
@@ -265,9 +265,9 @@ BoundCastInfo DefaultCasts::DecimalCastSwitch(BindCastInput &input, const Logica
 		}
 	}
 	case LogicalTypeId::FLOAT:
-		return BoundCastInfo(FromDecimalCast<float>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}));
+		return BoundCastInfo(FromDecimalCast<float>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}));
 	case LogicalTypeId::DOUBLE:
-		return BoundCastInfo(FromDecimalCast<double>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeIdToCppType(source.id()), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}));
+		return BoundCastInfo(FromDecimalCast<double>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}));
 	case LogicalTypeId::VARCHAR: {
 		switch (source.InternalType()) {
 		case PhysicalType::INT16:
