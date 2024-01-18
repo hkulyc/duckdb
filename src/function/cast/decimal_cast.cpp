@@ -253,13 +253,17 @@ BoundCastInfo DefaultCasts::DecimalCastSwitch(BindCastInput &input, const Logica
 		// first we need to figure out the source and target internal types
 		switch (source.InternalType()) {
 		case PhysicalType::INT16:
-			return DecimalDecimalCastSwitch<int16_t, NumericHelper>;
+			// return DecimalDecimalCastSwitch<int16_t, NumericHelper>;
+			return BoundCastInfo(DecimalDecimalCastSwitch<int16_t, NumericHelper>, ScalarFunctionInfo("", {}, {ScalarFunctionInfo::DecimalDeciamlCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}, {DecimalType::GetWidth(target), DecimalType::GetScale(target)}));
 		case PhysicalType::INT32:
-			return DecimalDecimalCastSwitch<int32_t, NumericHelper>;
+			// return DecimalDecimalCastSwitch<int32_t, NumericHelper>;
+			return BoundCastInfo(DecimalDecimalCastSwitch<int32_t, NumericHelper>, ScalarFunctionInfo("", {}, {ScalarFunctionInfo::DecimalDeciamlCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}, {DecimalType::GetWidth(target), DecimalType::GetScale(target)}));
 		case PhysicalType::INT64:
-			return DecimalDecimalCastSwitch<int64_t, NumericHelper>;
+			// return DecimalDecimalCastSwitch<int64_t, NumericHelper>;
+			return BoundCastInfo(DecimalDecimalCastSwitch<int64_t, NumericHelper>, ScalarFunctionInfo("", {}, {ScalarFunctionInfo::DecimalDeciamlCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}, {DecimalType::GetWidth(target), DecimalType::GetScale(target)}));
 		case PhysicalType::INT128:
-			return DecimalDecimalCastSwitch<hugeint_t, Hugeint>;
+			// return DecimalDecimalCastSwitch<hugeint_t, Hugeint>;
+			return BoundCastInfo(DecimalDecimalCastSwitch<hugeint_t, Hugeint>, ScalarFunctionInfo("", {}, {ScalarFunctionInfo::DecimalDeciamlCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}, {DecimalType::GetWidth(target), DecimalType::GetScale(target)}));
 		default:
 			throw NotImplementedException("Unimplemented internal type for decimal in decimal_decimal cast");
 		}

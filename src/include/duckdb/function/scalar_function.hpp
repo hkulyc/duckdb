@@ -85,7 +85,8 @@ enum SpecialValueHandling : uint8_t
 				NumericCastWrapper,						// most common cast op, first argument is the source second is the reference to target
 				DecimalCastWrapper, 					// (source, result, error_message, width, scale);
 				ErrorCastWrapper,						// (source, result, error_message, data->strict = false)
-				DecimalVectorBackWrapper				// (source, width, scale, vector);
+				DecimalVectorBackWrapper,				// (source, width, scale, vector);
+				DecimalDeciamlCastWrapper				// need its own function, should be exclusive
 			};
 public:
     /**
@@ -114,7 +115,11 @@ public:
 	/**
 	 * additional parameters for the decimal casts to use
 	*/
-	std::pair<int, int> width_scale = {0, 0};
+	std::pair<uint8_t, uint8_t> width_scale = {0, 0};
+	/**
+	 * the destination width and scale
+	*/
+	std::pair<uint8_t, uint8_t> width_scale2 = {0, 0};
     /**
      * length of input_type should be the same as return_type because they are 
      * one to one mapping
@@ -130,7 +135,10 @@ public:
 	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling) {
 		if(template_args.size() > 0) templated = true;
 	}
-	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling, std::pair<int, int> width_scale) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling), width_scale(width_scale) {
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling, std::pair<uint8_t, uint8_t> width_scale) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling), width_scale(width_scale) {
+		if(template_args.size() > 0) templated = true;
+	}
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling, std::pair<uint8_t, uint8_t> width_scale, std::pair<uint8_t, uint8_t> width_scale2) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling), width_scale(width_scale), width_scale2(width_scale2) {
 		if(template_args.size() > 0) templated = true;
 	}
 	// DUCKDB_API ScalarFunctionInfo(string cpp_name, bool templated = false, bool if_switch = false, bool default_null = true, bool if_string = false):
@@ -144,6 +152,7 @@ public:
 		if_switch = other.if_switch;
 		if_string = other.if_string;
 		width_scale = other.width_scale;
+		width_scale2 = other.width_scale2;
 		return *this;
 	}
 	DUCKDB_API ScalarFunctionInfo &operator=(ScalarFunctionInfo &&other) {
@@ -155,6 +164,7 @@ public:
 		if_switch = other.if_switch;
 		if_string = other.if_string;
 		width_scale = other.width_scale;
+		width_scale2 = other.width_scale2;
 		return *this;
 	}
 	DUCKDB_API ScalarFunctionInfo(ScalarFunctionInfo &&other){
