@@ -269,9 +269,9 @@ BoundCastInfo DefaultCasts::DecimalCastSwitch(BindCastInput &input, const Logica
 		}
 	}
 	case LogicalTypeId::FLOAT:
-		return BoundCastInfo(FromDecimalCast<float>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}));
+		return BoundCastInfo(FromDecimalCast<float>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "float"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::DOUBLE:
-		return BoundCastInfo(FromDecimalCast<double>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}));
+		return BoundCastInfo(FromDecimalCast<double>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "double"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::VARCHAR: {
 		switch (source.InternalType()) {
 		case PhysicalType::INT16:
