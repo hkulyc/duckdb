@@ -653,7 +653,7 @@ ScalarFunction SubtractFun::GetFunction(const LogicalType &left_type, const Logi
 			function.deserialize = DeserializeDecimalArithmetic<SubtractOperator, DecimalSubtractOverflowCheck>;
 			return function;
 		} else if (left_type.IsIntegral()) {
-			ScalarFunctionInfo function_info("SubtractOperatorOverflowCheck");
+			ScalarFunctionInfo function_info("SubtractOperatorOverflowCheck::operation");
 			GetScalarIntegerFunctionInfoTemplate(left_type.InternalType(), function_info.template_args);
 			return ScalarFunction(
 			    "-", {left_type, right_type}, left_type,
