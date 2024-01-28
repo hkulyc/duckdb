@@ -157,7 +157,8 @@ public:
 	DUCKDB_API vector<unique_ptr<SQLStatement>> ParseStatements(const string &query);
 
 	//! Extract the logical plan of a query
-	DUCKDB_API unique_ptr<LogicalOperator> ExtractPlan(const string &query);
+	DUCKDB_API unique_ptr<LogicalOperator> ExtractPlan(const string &query, bool disableColumnBinding = false);
+	DUCKDB_API unique_ptr<LogicalOperator> ExtractPlan(const string &query, bool disableColumnBinding, shared_ptr<Binder>& plannerBinder);
 	DUCKDB_API void HandlePragmaStatements(vector<unique_ptr<SQLStatement>> &statements);
 
 	//! Runs a function with a valid transaction context, potentially starting a transaction if the context is in auto
