@@ -19679,61 +19679,72 @@ static int runOneSqlLine(ShellState *p, char *zSql, FILE *in, int startline){
 // only available for POSIX
 #include "regex.h"
 
+static int udf_start(const char *zSql, size_t nSql){
+  const char *udf_start_pattern = "CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION";
+
+  const char *source = zSql;
+  regex_t udf_start_pattern_regex;
+  int ret;
+  char msgbuf[100];
+
+  // Compile the regular expression
+  regcomp(&udf_start_pattern_regex, udf_start_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+
+  // match udf_start_pattern
+  ret = regexec(&udf_start_pattern_regex, source, 0, NULL, 0);
+  regfree(&udf_start_pattern_regex);
+  if (!ret) {
+    return 1;
+  }
+  else if (ret == REG_NOMATCH) {
+    return 0;
+  }
+  else {
+    regerror(ret, &udf_start_pattern_regex, msgbuf, sizeof(msgbuf));
+    printf("udf_start_pattern_regex match failed: %s\n", msgbuf);
+    exit(1);
+  }
+}
+
 static int udf_complete(const char *zSql, size_t nSql){
   int complete = 0;
 
   // use [ ] instead of \\s for utf8 support
   const char *udf_pattern = "CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION.*LANGUAGE[ ]+PLPGSQL";
-  const char *udf_start_pattern = "CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION";
 
   const char *source = zSql;
-  regex_t udf_start_pattern_regex, udf_pattern_regex;
-  int ret1, ret2;
+  regex_t udf_pattern_regex;
+  int ret;
   char msgbuf[100];
 
   // Compile the regular expression
-  ret1 = regcomp(&udf_start_pattern_regex, udf_start_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
-  if (ret1) {
-      printf("Could not compile udf_start_pattern_regex\n");
-      exit(1);
-  }
-  ret2 = regcomp(&udf_pattern_regex, udf_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
-  if (ret2) {
+  ret = regcomp(&udf_pattern_regex, udf_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+  if (ret) {
       printf("Could not compile udf_pattern_regex\n");
       exit(1);
   }
 
-  // match udf_start_pattern
-  ret1 = regexec(&udf_start_pattern_regex, source, 0, NULL, 0);
-  if (!ret1) {
-      // is udf, check if it is complete
+  if(!udf_start(zSql, nSql)){
+    // not a udf, so always complete
+    return 1;
   }
-  else if (ret1 == REG_NOMATCH) {
-      // is not udf, so always complete
-      return 1;
-  }
-  else {
-      regerror(ret1, &udf_start_pattern_regex, msgbuf, sizeof(msgbuf));
-      printf("udf_start_pattern_regex match failed: %s\n", msgbuf);
-      exit(1);
-  }
+  
   // match udf_pattern
-  ret2 = regexec(&udf_pattern_regex, source, 0, NULL, 0);
-  if (!ret2) {
-      complete = 1;
+  ret = regexec(&udf_pattern_regex, source, 0, NULL, 0);
+  // Free compiled regular expression
+  regfree(&udf_pattern_regex);
+
+  if (!ret) {
+    complete = 1;
   }
-  else if (ret2 == REG_NOMATCH) {
-      // this udf is not complete yet
+  else if (ret == REG_NOMATCH) {
+    complete = 0;
   }
   else {
-      regerror(ret2, &udf_pattern_regex, msgbuf, sizeof(msgbuf));
-      printf("udf_pattern_regex match failed: %s\n", msgbuf);
-      exit(1);
+    regerror(ret, &udf_pattern_regex, msgbuf, sizeof(msgbuf));
+    printf("udf_pattern_regex match failed: %s\n", msgbuf);
+    exit(1);
   }
-
-  // Free compiled regular expression
-  regfree(&udf_start_pattern_regex);
-  regfree(&udf_pattern_regex);
 
   return complete;
 }
