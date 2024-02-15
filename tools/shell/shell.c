@@ -19680,7 +19680,7 @@ static int runOneSqlLine(ShellState *p, char *zSql, FILE *in, int startline){
 #include "regex.h"
 
 static int udf_start(const char *zSql, size_t nSql){
-  const char *udf_start_pattern = "CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION";
+  const char *udf_start_pattern = "^[ ]*CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION[ ]+";
 
   const char *source = zSql;
   regex_t udf_start_pattern_regex;
@@ -19710,7 +19710,7 @@ static int udf_complete(const char *zSql, size_t nSql){
   int complete = 0;
 
   // use [ ] instead of \\s for utf8 support
-  const char *udf_pattern = "CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION.*LANGUAGE[ ]+PLPGSQL";
+  const char *udf_pattern = "^[ ]*CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION[ ]+.*LANGUAGE[ ]+PLPGSQL";
 
   const char *source = zSql;
   regex_t udf_pattern_regex;
