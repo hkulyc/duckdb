@@ -25,7 +25,7 @@ ScalarFunction::ScalarFunction(string name, vector<LogicalType> arguments, Logic
                          std::move(varargs), null_handling),
       function(std::move(function)), function_info(std::move(function_info)), bind(bind), init_local_state(init_local_state), dependency(dependency),
       statistics(statistics), serialize(nullptr), deserialize(nullptr) {
-	has_scalar_funcition_info = true;
+	has_scalar_function_info = true;
 }
 
 ScalarFunction::ScalarFunction(vector<LogicalType> arguments, LogicalType return_type, scalar_function_t function,

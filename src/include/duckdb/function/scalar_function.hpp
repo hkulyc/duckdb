@@ -232,7 +232,7 @@ public:
 	// ScalarFunction(const ScalarFunction &other): function(other.function), bind(other.bind), init_local_state(other.init_local_state), 
 	// 	dependency(other.dependency), statistics(other.statistics), serialize(other.serialize), deserialize(other.deserialize), 
 	// 	format_serialize(other.format_serialize), format_deserialize(other.format_deserialize), function_info(other.function_info), 
-	// 	has_scalar_funcition_info(other.has_scalar_funcition_info), BaseScalarFunction(other) {}
+	// 	has_scalar_function_info(other.has_scalar_function_info), BaseScalarFunction(other) {}
 	//! The main scalar function to execute
 	scalar_function_t function;
 	//! The bind function (if any)
@@ -247,7 +247,7 @@ public:
 	function_serialize_t serialize;
 	function_deserialize_t deserialize;
 
-	bool has_scalar_funcition_info = false;
+	bool has_scalar_function_info = false;
 	ScalarFunctionInfo function_info;
 
 	DUCKDB_API bool operator==(const ScalarFunction &rhs) const;
