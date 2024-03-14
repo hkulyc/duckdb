@@ -863,7 +863,7 @@ void MultiplyFun::RegisterFunction(BuiltinFunctions &set) {
 	ScalarFunctionSet functions("*");
 	for (auto &type : LogicalType::Numeric()) {
 		if (type.id() == LogicalTypeId::DECIMAL) {
-			ScalarFunction function({type, type}, type, nullptr, std::move(ScalarFunctionInfo()), BindDecimalMultiply);
+			ScalarFunction function({type, type}, type, nullptr, ScalarFunctionInfo(), BindDecimalMultiply);
 			function.serialize = SerializeDecimalArithmetic;
 			function.deserialize = DeserializeDecimalArithmetic<MultiplyOperator, DecimalMultiplyOverflowCheck>;
 			functions.AddFunction(function);

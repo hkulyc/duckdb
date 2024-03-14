@@ -316,8 +316,8 @@ private:
 	PhysicalType physical_type_;
 	shared_ptr<ExtraTypeInfo> type_info_;
 
-private:
-	PhysicalType GetInternalType();
+public:
+	PhysicalType GetInternalType() const;
 
 public:
 	static constexpr const LogicalTypeId SQLNULL = LogicalTypeId::SQLNULL;

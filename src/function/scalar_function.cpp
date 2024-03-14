@@ -102,54 +102,39 @@ std::string ScalarFunctionInfo::DecimalTypeToCppType(int width, int scale){
 }
 
 std::string ScalarFunctionInfo::LogicalTypeToCppType(const LogicalType &logical_type) {
-      switch (logical_type.id()) {
-      case LogicalTypeId::BOOLEAN:
+      switch (logical_type.GetInternalType()) {
+      case PhysicalType::BOOL:
             return "bool";
-      case LogicalTypeId::TINYINT:
+      case PhysicalType::INT8:
             return "int8_t";
-      case LogicalTypeId::SMALLINT:
+      case PhysicalType::INT16:
             return "int16_t";
-      case LogicalTypeId::INTEGER:
+      case PhysicalType::INT32:
             return "int32_t";
-      case LogicalTypeId::BIGINT:
+      case PhysicalType::INT64:
             return "int64_t";
-      case LogicalTypeId::UTINYINT:
+      case PhysicalType::UINT8:
             return "uint8_t";
-      case LogicalTypeId::USMALLINT:
+      case PhysicalType::UINT16:
             return "uint16_t";
-      case LogicalTypeId::UINTEGER:
+      case PhysicalType::UINT32:
             return "uint32_t";
-      case LogicalTypeId::UBIGINT:
+      case PhysicalType::UINT64:
             return "uint64_t";
-      case LogicalTypeId::HUGEINT:
+      case PhysicalType::INT128:
             return "hugeint_t";
-      case LogicalTypeId::FLOAT:
+      case PhysicalType::FLOAT:
             return "float";
-      case LogicalTypeId::DOUBLE:
+      case PhysicalType::DOUBLE:
             return "double";
-      case LogicalTypeId::DECIMAL:
-            return DecimalTypeToCppType(DecimalType::GetWidth(logical_type), DecimalType::GetScale(logical_type));
-      // case LogicalTypeId::DATE:
-      //       return "date_t";
-      // case LogicalTypeId::TIME:
-      //       return "dtime_t";
-      // case LogicalTypeId::TIMESTAMP:
-      //       return "timestamp_t";
-      // case LogicalTypeId::VARCHAR:
-      //       return "string_t";
-      // case LogicalTypeId::BLOB:
-      //       return "blob_t";
-      // case LogicalTypeId::INTERVAL:
-      //       return "interval_t";
-      // case LogicalTypeId::LIST:
-      //       return "list_entry_t";
-      // case LogicalTypeId::STRUCT:
-      //       return "struct_t";
-      // case LogicalTypeId::MAP:
-      //       return "map_t";
+      case PhysicalType::VARCHAR:
+            return "string_t";
+      // case PhysicalType::DECIMAL:
+      //       return DecimalTypeToCppType(DecimalType::GetWidth(logical_type), DecimalType::GetScale(logical_type));
       default:
             printf("Unimplemented type for C++ code generation\n");
             return "UNIMPLEMENTED";
+
       }
 }
 
