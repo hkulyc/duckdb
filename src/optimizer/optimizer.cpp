@@ -90,34 +90,40 @@ unique_ptr<LogicalOperator> Optimizer::Optimize(unique_ptr<LogicalOperator> plan
 	// first we perform expression rewrites using the ExpressionRewriter
 	// this does not change the logical plan structure, but only simplifies the expression trees
 	RunOptimizer(OptimizerType::EXPRESSION_REWRITER, [&]() { rewriter.VisitOperator(*plan); });
+	// printf("Optimizer: EXPRESSION_REWRITER, plan: %s\n", plan->ToString().c_str());
 
 	// perform filter pullup
 	RunOptimizer(OptimizerType::FILTER_PULLUP, [&]() {
 		FilterPullup filter_pullup;
 		plan = filter_pullup.Rewrite(std::move(plan));
 	});
+	("Optimizer: FILTER_PULLUP, plan: %s\n", plan->ToString().c_str());
 
 	// perform filter pushdown
 	RunOptimizer(OptimizerType::FILTER_PUSHDOWN, [&]() {
 		FilterPushdown filter_pushdown(*this);
 		plan = filter_pushdown.Rewrite(std::move(plan));
 	});
+	// printf("Optimizer: FILTER_PUSHDOWN, plan: %s\n", plan->ToString().c_str());
 
 	RunOptimizer(OptimizerType::REGEX_RANGE, [&]() {
 		RegexRangeFilter regex_opt;
 		plan = regex_opt.Rewrite(std::move(plan));
 	});
+	// printf("Optimizer: REGEX_RANGE, plan: %s\n", plan->ToString().c_str());
 
 	RunOptimizer(OptimizerType::IN_CLAUSE, [&]() {
 		InClauseRewriter ic_rewriter(context, *this);
 		plan = ic_rewriter.Rewrite(std::move(plan));
 	});
+	// printf("Optimizer: IN_CLAUSE, plan: %s\n", plan->ToString().c_str());
 
 	// removes any redundant DelimGets/DelimJoins
 	RunOptimizer(OptimizerType::DELIMINATOR, [&]() {
 		Deliminator deliminator;
 		plan = deliminator.Optimize(std::move(plan));
 	});
+	// printf("Optimizer: DELIMINATOR, plan: %s\n", plan->ToString().c_str());
 
 	// then we perform the join ordering optimization
 	// this also rewrites cross products + filters into joins and performs filter pushdowns
@@ -125,30 +131,35 @@ unique_ptr<LogicalOperator> Optimizer::Optimize(unique_ptr<LogicalOperator> plan
 		JoinOrderOptimizer optimizer(context);
 		plan = optimizer.Optimize(std::move(plan));
 	});
+	// printf("Optimizer: JOIN_ORDER, plan: %s\n", plan->ToString().c_str());
 
 	// rewrites UNNESTs in DelimJoins by moving them to the projection
 	RunOptimizer(OptimizerType::UNNEST_REWRITER, [&]() {
 		UnnestRewriter unnest_rewriter;
 		plan = unnest_rewriter.Optimize(std::move(plan));
 	});
+	// printf("Optimizer: UNNEST_REWRITER, plan: %s\n", plan->ToString().c_str());
 
 	// removes unused columns
 	RunOptimizer(OptimizerType::UNUSED_COLUMNS, [&]() {
 		RemoveUnusedColumns unused(binder, context, true);
 		unused.VisitOperator(*plan);
 	});
+	// printf("Optimizer: UNUSED_COLUMNS, plan: %s\n", plan->ToString().c_str());
 
 	// Remove duplicate groups from aggregates
 	RunOptimizer(OptimizerType::DUPLICATE_GROUPS, [&]() {
 		RemoveDuplicateGroups remove;
 		remove.VisitOperator(*plan);
 	});
+	// printf("Optimizer: DUPLICATE_GROUPS, plan: %s\n", plan->ToString().c_str());
 
 	// then we extract common subexpressions inside the different operators
 	RunOptimizer(OptimizerType::COMMON_SUBEXPRESSIONS, [&]() {
 		CommonSubExpressionOptimizer cse_optimizer(binder);
 		cse_optimizer.VisitOperator(*plan);
 	});
+	// printf("Optimizer: COMMON_SUBEXPRESSIONS, plan: %s\n", plan->ToString().c_str());
 
 	// creates projection maps so unused columns are projected out early
 	RunOptimizer(OptimizerType::COLUMN_LIFETIME, [&]() {

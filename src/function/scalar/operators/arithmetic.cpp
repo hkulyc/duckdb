@@ -843,7 +843,7 @@ unique_ptr<FunctionData> BindDecimalMultiply(ClientContext &context, ScalarFunct
 	// now select the physical function to execute
 	if (bind_data->check_overflow) {
 		bound_function.function = GetScalarBinaryFunction<DecimalMultiplyOverflowCheck>(result_type.InternalType());
-		bound_function.function_info.cpp_name = "DecimalMultiplyOverflowCheck";
+		bound_function.function_info.cpp_name = "DecimalMultiplyOverflowCheck::Operation";
 		bound_function.function_info.templated = true;
 		GetScalarBinaryFunctionInfoTemplate(result_type.InternalType(), bound_function.function_info.template_args);
 	} else {
