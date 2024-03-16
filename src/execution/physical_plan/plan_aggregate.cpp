@@ -165,10 +165,6 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalAggregate 
 			break;
 		}
 	}
-	if(all_combinable)
-		printf("all combinable\n");
-	else
-		printf("not all combinable\n");
 
 	if (op.groups.empty() && op.grouping_sets.size() <= 1) {
 		// no groups, check if we can use a simple aggregation
