@@ -179,12 +179,10 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalAggregate 
 			}
 		}
 		if (use_simple_aggregation) {
-			printf("Case 1\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalUngroupedAggregate>(op.types, std::move(op.expressions),
 			                                                                       op.estimated_cardinality);
 			((PhysicalUngroupedAggregate*) groupby.get())->allCombinable = all_combinable;																	   
 		} else {
-			printf("Case 2\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalHashAggregate>(
 			    context, op.types, std::move(op.expressions), op.estimated_cardinality);
 			((PhysicalHashAggregate*) groupby.get())->allCombinable = all_combinable;
@@ -194,13 +192,11 @@ unique_ptr<PhysicalOperator> PhysicalPlanGenerator::CreatePlan(LogicalAggregate 
 		// use a perfect hash aggregate if possible
 		vector<idx_t> required_bits;
 		if (CanUsePerfectHashAggregate(context, op, required_bits)) {
-			printf("Case 3\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalPerfectHashAggregate>(
 			    context, op.types, std::move(op.expressions), std::move(op.groups), std::move(op.group_stats),
 			    std::move(required_bits), op.estimated_cardinality);
 			((PhysicalPerfectHashAggregate*) groupby.get())->allCombinable = all_combinable;
 		} else {
-			printf("Case 4\n");
 			groupby = make_uniq_base<PhysicalOperator, PhysicalHashAggregate>(
 			    context, op.types, std::move(op.expressions), std::move(op.groups), std::move(op.grouping_sets),
 			    std::move(op.grouping_functions), op.estimated_cardinality);
