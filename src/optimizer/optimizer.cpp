@@ -97,7 +97,7 @@ unique_ptr<LogicalOperator> Optimizer::Optimize(unique_ptr<LogicalOperator> plan
 		FilterPullup filter_pullup;
 		plan = filter_pullup.Rewrite(std::move(plan));
 	});
-	("Optimizer: FILTER_PULLUP, plan: %s\n", plan->ToString().c_str());
+	// printf("Optimizer: FILTER_PULLUP, plan: %s\n", plan->ToString().c_str());
 
 	// perform filter pushdown
 	RunOptimizer(OptimizerType::FILTER_PUSHDOWN, [&]() {
