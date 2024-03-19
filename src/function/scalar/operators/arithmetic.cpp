@@ -89,6 +89,9 @@ void GetScalarIntegerFunctionInfoTemplate(PhysicalType type, std::vector<std::st
 	case PhysicalType::UINT64:
 		template_args = {"uint64_t", "uint64_t", "uint64_t"};
 		break;
+	case PhysicalType::UINT128:
+		template_args = {"uhugeint_t", "uhugeint_t", "uhugeint_t"};
+		break;
 	default:
 		throw NotImplementedException("Unimplemented type for GetScalarBinaryFunctionInfoTemplate");
 	}
