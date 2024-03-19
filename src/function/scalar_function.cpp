@@ -25,7 +25,7 @@ ScalarFunction::ScalarFunction(string name, vector<LogicalType> arguments, Logic
     : BaseScalarFunction(std::move(name), std::move(arguments), std::move(return_type), side_effects,
                          std::move(varargs), null_handling),
       function(std::move(function)), function_info(std::move(function_info)), bind(bind),
-      init_local_state(init_local_state), dependency(dependency), statistics(statistics), serialize(nullptr),
+      init_local_state(init_local_state), dependency(dependency), statistics(statistics), bind_lambda(bind_lambda), serialize(nullptr),
       deserialize(nullptr) {
 	has_scalar_function_info = true;
 }
@@ -181,6 +181,8 @@ std::string ScalarFunctionInfo::PhysicalTypeIdToCppType(PhysicalType type_id) {
 // return_type, 	                          scalar_function_t function, ScalarFunctionInfo &&function_info,
 // bind_scalar_function_t bind, 	                          dependency_function_t dependency, function_statistics_t
 // statistics, 	                          init_local_state_t init_local_state, 	                          LogicalType
+// varargs, FunctionSideEffects side_effects, 	                          FunctionNullHandling null_handling) 	:
+// varargs, FunctionSideEffects side_effects, 	                          FunctionNullHandling null_handling) 	:
 // varargs, FunctionSideEffects side_effects, 	                          FunctionNullHandling null_handling) 	:
 // ScalarFunction(std::move(name), std::move(arguments), std::move(return_type), std::move(function), bind, dependency,
 // statistics, init_local_state, std::move(varargs), side_effects, null_handling),
