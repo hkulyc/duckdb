@@ -6,6 +6,7 @@
 
 #include "duckdb_python/python_objects.hpp"
 #include "duckdb_python/pyconnection/pyconnection.hpp"
+#include "duckdb_python/pystatement.hpp"
 #include "duckdb_python/pyrelation.hpp"
 #include "duckdb_python/expression/pyexpression.hpp"
 #include "duckdb_python/pyresult.hpp"
@@ -14,9 +15,11 @@
 #include "duckdb_python/functional.hpp"
 #include "duckdb_python/connection_wrapper.hpp"
 #include "duckdb_python/pybind11/conversions/pyconnection_default.hpp"
+#include "duckdb/common/box_renderer.hpp"
 #include "duckdb/function/function.hpp"
 #include "duckdb_python/pybind11/conversions/exception_handling_enum.hpp"
 #include "duckdb_python/pybind11/conversions/python_udf_type_enum.hpp"
+#include "duckdb/common/enums/statement_type.hpp"
 
 #include "duckdb.hpp"
 
@@ -95,9 +98,10 @@ static void InitializeConnectionMethods(py::module_ &m) {
 	         py::arg("type"), py::arg("values"), py::arg("connection") = py::none())
 	    .def("decimal_type", &PyConnectionWrapper::DecimalType, "Create a decimal type with 'width' and 'scale'",
 	         py::arg("width"), py::arg("scale"), py::arg("connection") = py::none());
-	DefineMethod({"array_type", "list_type"}, m, &PyConnectionWrapper::ArrayType,
-	             "Create an array type object of 'type'", py::arg("type").none(false),
-	             py::arg("connection") = py::none());
+	m.def("array_type", &PyConnectionWrapper::ArrayType, "Create an array type object of 'type'",
+	      py::arg("type").none(false), py::arg("size").none(false), py::arg("connection") = py::none());
+	m.def("list_type", &PyConnectionWrapper::ListType, "Create a list type object of 'type'",
+	      py::arg("type").none(false), py::arg("connection") = py::none());
 	m.def("map_type", &PyConnectionWrapper::MapType, "Create a map type object from 'key_type' and 'value_type'",
 	      py::arg("key").none(false), py::arg("value").none(false), py::arg("connection") = py::none())
 	    .def("execute", &PyConnectionWrapper::Execute,
@@ -201,7 +205,7 @@ static void InitializeConnectionMethods(py::module_ &m) {
 	    py::arg("encoding") = py::none(), py::arg("parallel") = py::none(), py::arg("date_format") = py::none(),
 	    py::arg("timestamp_format") = py::none(), py::arg("sample_size") = py::none(),
 	    py::arg("all_varchar") = py::none(), py::arg("normalize_names") = py::none(), py::arg("filename") = py::none(),
-	    py::arg("null_padding") = py::none());
+	    py::arg("null_padding") = py::none(), py::arg("names") = py::none());
 
 	m.def("append", &PyConnectionWrapper::Append, "Append the passed DataFrame to the named table",
 	      py::arg("table_name"), py::arg("df"), py::kw_only(), py::arg("by_name") = false,
@@ -219,7 +223,10 @@ static void InitializeConnectionMethods(py::module_ &m) {
 	         py::arg("values"), py::arg("connection") = py::none())
 	    .def("table_function", &PyConnectionWrapper::TableFunction,
 	         "Create a relation object from the name'd table function with given parameters", py::arg("name"),
-	         py::arg("parameters") = py::none(), py::arg("connection") = py::none());
+	         py::arg("parameters") = py::none(), py::arg("connection") = py::none())
+	    .def("extract_statements", &PyConnectionWrapper::ExtractStatements,
+	         "Parse the query string and extract the Statement object(s) produced", py::arg("query"),
+	         py::arg("connection") = py::none());
 
 	DefineMethod({"sql", "query", "from_query"}, m, &PyConnectionWrapper::RunQuery,
 	             "Run a SQL query. If it is a SELECT statement, create a relation object from the given SQL query, "
@@ -266,20 +273,69 @@ static void InitializeConnectionMethods(py::module_ &m) {
 	         py::arg("connection") = py::none());
 }
 
+static void RegisterStatementType(py::handle &m) {
+	auto statement_type = py::enum_<duckdb::StatementType>(m, "StatementType");
+	static const duckdb::StatementType TYPES[] = {
+	    duckdb::StatementType::INVALID_STATEMENT,      duckdb::StatementType::SELECT_STATEMENT,
+	    duckdb::StatementType::INSERT_STATEMENT,       duckdb::StatementType::UPDATE_STATEMENT,
+	    duckdb::StatementType::CREATE_STATEMENT,       duckdb::StatementType::DELETE_STATEMENT,
+	    duckdb::StatementType::PREPARE_STATEMENT,      duckdb::StatementType::EXECUTE_STATEMENT,
+	    duckdb::StatementType::ALTER_STATEMENT,        duckdb::StatementType::TRANSACTION_STATEMENT,
+	    duckdb::StatementType::COPY_STATEMENT,         duckdb::StatementType::ANALYZE_STATEMENT,
+	    duckdb::StatementType::VARIABLE_SET_STATEMENT, duckdb::StatementType::CREATE_FUNC_STATEMENT,
+	    duckdb::StatementType::EXPLAIN_STATEMENT,      duckdb::StatementType::DROP_STATEMENT,
+	    duckdb::StatementType::EXPORT_STATEMENT,       duckdb::StatementType::PRAGMA_STATEMENT,
+	    duckdb::StatementType::VACUUM_STATEMENT,       duckdb::StatementType::CALL_STATEMENT,
+	    duckdb::StatementType::SET_STATEMENT,          duckdb::StatementType::LOAD_STATEMENT,
+	    duckdb::StatementType::RELATION_STATEMENT,     duckdb::StatementType::EXTENSION_STATEMENT,
+	    duckdb::StatementType::LOGICAL_PLAN_STATEMENT, duckdb::StatementType::ATTACH_STATEMENT,
+	    duckdb::StatementType::DETACH_STATEMENT,       duckdb::StatementType::MULTI_STATEMENT,
+	    duckdb::StatementType::COPY_DATABASE_STATEMENT};
+	static const idx_t AMOUNT = sizeof(TYPES) / sizeof(duckdb::StatementType);
+	for (idx_t i = 0; i < AMOUNT; i++) {
+		auto &type = TYPES[i];
+		statement_type.value(StatementTypeToString(type).c_str(), type);
+	}
+	statement_type.export_values();
+}
+
+static void RegisterExpectedResultType(py::handle &m) {
+	auto expected_return_type = py::enum_<duckdb::StatementReturnType>(m, "ExpectedResultType");
+	static const duckdb::StatementReturnType TYPES[] = {duckdb::StatementReturnType::QUERY_RESULT,
+	                                                    duckdb::StatementReturnType::CHANGED_ROWS,
+	                                                    duckdb::StatementReturnType::NOTHING};
+	static const idx_t AMOUNT = sizeof(TYPES) / sizeof(duckdb::StatementReturnType);
+	for (idx_t i = 0; i < AMOUNT; i++) {
+		auto &type = TYPES[i];
+		expected_return_type.value(StatementReturnTypeToString(type).c_str(), type);
+	}
+	expected_return_type.export_values();
+}
+
 PYBIND11_MODULE(DUCKDB_PYTHON_LIB_NAME, m) { // NOLINT
 	py::enum_<duckdb::ExplainType>(m, "ExplainType")
 	    .value("STANDARD", duckdb::ExplainType::EXPLAIN_STANDARD)
 	    .value("ANALYZE", duckdb::ExplainType::EXPLAIN_ANALYZE)
 	    .export_values();
 
+	RegisterStatementType(m);
+
+	RegisterExpectedResultType(m);
+
 	py::enum_<duckdb::PythonExceptionHandling>(m, "PythonExceptionHandling")
 	    .value("DEFAULT", duckdb::PythonExceptionHandling::FORWARD_ERROR)
 	    .value("RETURN_NULL", duckdb::PythonExceptionHandling::RETURN_NULL)
 	    .export_values();
 
+	py::enum_<duckdb::RenderMode>(m, "RenderMode")
+	    .value("ROWS", duckdb::RenderMode::ROWS)
+	    .value("COLUMNS", duckdb::RenderMode::COLUMNS)
+	    .export_values();
+
 	DuckDBPyTyping::Initialize(m);
 	DuckDBPyFunctional::Initialize(m);
 	DuckDBPyExpression::Initialize(m);
+	DuckDBPyStatement::Initialize(m);
 	DuckDBPyRelation::Initialize(m);
 	DuckDBPyConnection::Initialize(m);
 	PythonObject::Initialize();
@@ -288,13 +344,13 @@ PYBIND11_MODULE(DUCKDB_PYTHON_LIB_NAME, m) { // NOLINT
 
 	m.doc() = "DuckDB is an embeddable SQL OLAP Database Management System";
 	m.attr("__package__") = "duckdb";
-	m.attr("__version__") = DuckDB::LibraryVersion();
+	m.attr("__version__") = std::string(DuckDB::LibraryVersion()).substr(1);
 	m.attr("__standard_vector_size__") = DuckDB::StandardVectorSize();
 	m.attr("__git_revision__") = DuckDB::SourceID();
 	m.attr("__interactive__") = DuckDBPyConnection::DetectAndGetEnvironment();
 	m.attr("__jupyter__") = DuckDBPyConnection::IsJupyter();
 	m.attr("default_connection") = DuckDBPyConnection::DefaultConnection();
-	m.attr("apilevel") = "1.0";
+	m.attr("apilevel") = "2.0";
 	m.attr("threadsafety") = 1;
 	m.attr("paramstyle") = "qmark";
 

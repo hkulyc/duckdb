@@ -70,7 +70,7 @@ TEST_CASE("Test closing database during long running query", "[api]") {
 	auto conn = make_uniq<Connection>(*db);
 	// create the database
 	REQUIRE_NO_FAIL(conn->Query("CREATE TABLE integers(i INTEGER)"));
-	REQUIRE_NO_FAIL(conn->Query("INSERT INTO integers VALUES (1), (2), (3), (NULL)"));
+	REQUIRE_NO_FAIL(conn->Query("INSERT INTO integers FROM range(10000)"));
 	conn->DisableProfiling();
 	// perform a long running query in the background (many cross products)
 	bool correct = true;
@@ -309,6 +309,22 @@ TEST_CASE("Test fetch API", "[api]") {
 	REQUIRE(CHECK_COLUMN(result, 0, {42}));
 }
 
+TEST_CASE("Test fetch API not to completion", "[api]") {
+	auto db = make_uniq<DuckDB>(nullptr);
+	auto conn = make_uniq<Connection>(*db);
+	// remove connection with active stream result
+	auto result = conn->SendQuery("SELECT 42");
+	// close the connection
+	conn.reset();
+	// now try to fetch a chunk, this should not return a nullptr
+	auto chunk = result->Fetch();
+	REQUIRE(chunk);
+	// Only if we would call Fetch again would we Close the QueryResult
+	// this is testing that it can get cleaned up without this.
+
+	db.reset();
+}
+
 TEST_CASE("Test fetch API robustness", "[api]") {
 	auto db = make_uniq<DuckDB>(nullptr);
 	auto conn = make_uniq<Connection>(*db);
@@ -530,7 +546,6 @@ TEST_CASE("Test large number of connections to a single database", "[api]") {
 	REQUIRE(connection_manager.connections.size() == createdConnections);
 
 	for (size_t i = 0; i < toRemove; i++) {
-		auto conn = *connections[0];
 		connections.erase(connections.begin());
 	}
 
@@ -614,4 +629,28 @@ TEST_CASE("Test loading database with enable_external_access set to false", "[ap
 	Connection con(db);
 
 	REQUIRE_FAIL(con.Query("ATTACH 'mydb.db' AS external_access_test"));
+}
+
+TEST_CASE("Test insert returning in CPP API", "[api]") {
+	DuckDB db(nullptr);
+	Connection con(db);
+	con.Query("CREATE TABLE test(val VARCHAR);");
+
+	con.Query("INSERT INTO test(val) VALUES ('query_1')");
+	auto res = con.Query("INSERT INTO test(val) VALUES ('query_2') returning *");
+	REQUIRE(CHECK_COLUMN(res, 0, {"query_2"}));
+
+	con.Query("INSERT INTO test(val) VALUES (?);", "query_arg_1");
+	auto returning_args = con.Query("INSERT INTO test(val) VALUES (?) RETURNING *;", "query_arg_2");
+	REQUIRE(CHECK_COLUMN(returning_args, 0, {"query_arg_2"}));
+
+	con.Prepare("INSERT INTO test(val) VALUES (?);")->Execute("prepared_arg_1");
+	auto prepared_returning_args =
+	    con.Prepare("INSERT INTO test(val) VALUES (?) returning *;")->Execute("prepared_arg_2");
+	REQUIRE(CHECK_COLUMN(prepared_returning_args, 0, {"prepared_arg_2"}));
+
+	// make sure all inserts actually inserted
+	auto result = con.Query("SELECT * from test;");
+	REQUIRE(CHECK_COLUMN(result, 0,
+	                     {"query_1", "query_2", "query_arg_1", "query_arg_2", "prepared_arg_1", "prepared_arg_2"}));
 }

@@ -10,7 +10,7 @@ namespace duckdb {
 
 DuckDBPyExpression::DuckDBPyExpression(unique_ptr<ParsedExpression> expr_p, OrderType order_type,
                                        OrderByNullType null_order)
-    : expression(std::move(expr_p)), order_type(order_type), null_order(null_order) {
+    : expression(std::move(expr_p)), null_order(null_order), order_type(order_type) {
 	if (!expression) {
 		throw InternalException("DuckDBPyExpression created without an expression");
 	}
@@ -153,6 +153,16 @@ shared_ptr<DuckDBPyExpression> DuckDBPyExpression::And(const DuckDBPyExpression 
 
 shared_ptr<DuckDBPyExpression> DuckDBPyExpression::Or(const DuckDBPyExpression &other) {
 	return DuckDBPyExpression::InternalConjunction(ExpressionType::CONJUNCTION_OR, *this, other);
+}
+
+// NULL
+
+shared_ptr<DuckDBPyExpression> DuckDBPyExpression::IsNull() {
+	return DuckDBPyExpression::InternalUnaryOperator(ExpressionType::OPERATOR_IS_NULL, *this);
+}
+
+shared_ptr<DuckDBPyExpression> DuckDBPyExpression::IsNotNull() {
+	return DuckDBPyExpression::InternalUnaryOperator(ExpressionType::OPERATOR_IS_NOT_NULL, *this);
 }
 
 // IN
@@ -325,7 +335,7 @@ shared_ptr<DuckDBPyExpression> DuckDBPyExpression::CaseExpression(const DuckDBPy
 	// Add NULL as default Else expression
 	auto &internal_expression = reinterpret_cast<duckdb::CaseExpression &>(*case_expr->expression);
 	internal_expression.else_expr = make_uniq<duckdb::ConstantExpression>(Value(LogicalTypeId::SQLNULL));
-	return std::move(case_expr);
+	return case_expr;
 }
 
 shared_ptr<DuckDBPyExpression> DuckDBPyExpression::FunctionExpression(const string &function_name,
@@ -334,7 +344,8 @@ shared_ptr<DuckDBPyExpression> DuckDBPyExpression::FunctionExpression(const stri
 	for (auto arg : args) {
 		shared_ptr<DuckDBPyExpression> py_expr;
 		if (!py::try_cast<shared_ptr<DuckDBPyExpression>>(arg, py_expr)) {
-			throw InvalidInputException("Please provide arguments of type Expression!");
+			string actual_type = py::str(arg.get_type());
+			throw InvalidInputException("Expected argument of type Expression, received '%s' instead", actual_type);
 		}
 		auto expr = py_expr->GetExpression().Copy();
 		expressions.push_back(std::move(expr));

@@ -2,7 +2,6 @@
 
 #include "duckdb/common/pair.hpp"
 #include "duckdb/storage/checkpoint/write_overflow_strings_to_disk.hpp"
-#include "miniz_wrapper.hpp"
 #include "duckdb/common/serializer/serializer.hpp"
 #include "duckdb/common/serializer/deserializer.hpp"
 #include "duckdb/storage/table/column_data.hpp"
@@ -111,8 +110,8 @@ BufferHandle &ColumnFetchState::GetOrInsertHandle(ColumnSegment &segment) {
 		// not pinned yet: pin it
 		auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
 		auto handle = buffer_manager.Pin(segment.block);
-		auto entry = handles.insert(make_pair(primary_id, std::move(handle)));
-		return entry.first->second;
+		auto pinned_entry = handles.insert(make_pair(primary_id, std::move(handle)));
+		return pinned_entry.first->second;
 	} else {
 		// already pinned: use the pinned handle
 		return entry->second;
@@ -165,7 +164,7 @@ UncompressedStringStorage::StringInitSegment(ColumnSegment &segment, block_id_t 
 		auto handle = buffer_manager.Pin(segment.block);
 		StringDictionaryContainer dictionary;
 		dictionary.size = 0;
-		dictionary.end = segment.SegmentSize();
+		dictionary.end = UnsafeNumericCast<uint32_t>(segment.SegmentSize());
 		SetDictionary(segment, handle, dictionary);
 	}
 	auto result = make_uniq<UncompressedStringSegmentState>();
@@ -284,7 +283,7 @@ void UncompressedStringStorage::WriteString(ColumnSegment &segment, string_t str
 
 void UncompressedStringStorage::WriteStringMemory(ColumnSegment &segment, string_t string, block_id_t &result_block,
                                                   int32_t &result_offset) {
-	uint32_t total_length = string.GetSize() + sizeof(uint32_t);
+	auto total_length = UnsafeNumericCast<uint32_t>(string.GetSize() + sizeof(uint32_t));
 	shared_ptr<BlockHandle> block;
 	BufferHandle handle;
 
@@ -299,7 +298,7 @@ void UncompressedStringStorage::WriteStringMemory(ColumnSegment &segment, string
 		new_block->offset = 0;
 		new_block->size = alloc_size;
 		// allocate an in-memory buffer for it
-		handle = buffer_manager.Allocate(alloc_size, false, &block);
+		handle = buffer_manager.Allocate(MemoryTag::OVERFLOW_STRINGS, alloc_size, false, &block);
 		state.overflow_blocks.insert(make_pair(block->BlockId(), reference<StringBlock>(*new_block)));
 		new_block->block = std::move(block);
 		new_block->next = std::move(state.head);
@@ -310,11 +309,11 @@ void UncompressedStringStorage::WriteStringMemory(ColumnSegment &segment, string
 	}
 
 	result_block = state.head->block->BlockId();
-	result_offset = state.head->offset;
+	result_offset = UnsafeNumericCast<int32_t>(state.head->offset);
 
 	// copy the string and the length there
 	auto ptr = handle.Ptr() + state.head->offset;
-	Store<uint32_t>(string.GetSize(), ptr);
+	Store<uint32_t>(UnsafeNumericCast<uint32_t>(string.GetSize()), ptr);
 	ptr += sizeof(uint32_t);
 	memcpy(ptr, string.GetData(), string.GetSize());
 	state.head->offset += total_length;
@@ -323,7 +322,7 @@ void UncompressedStringStorage::WriteStringMemory(ColumnSegment &segment, string
 string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, Vector &result, block_id_t block,
                                                        int32_t offset) {
 	D_ASSERT(block != INVALID_BLOCK);
-	D_ASSERT(offset < Storage::BLOCK_SIZE);
+	D_ASSERT(offset < int32_t(Storage::BLOCK_SIZE));
 
 	auto &block_manager = segment.GetBlockManager();
 	auto &buffer_manager = block_manager.buffer_manager;
@@ -335,52 +334,36 @@ string_t UncompressedStringStorage::ReadOverflowString(ColumnSegment &segment, V
 		auto handle = buffer_manager.Pin(block_handle);
 
 		// read header
-		uint32_t compressed_size = Load<uint32_t>(handle.Ptr() + offset);
-		uint32_t uncompressed_size = Load<uint32_t>(handle.Ptr() + offset + sizeof(uint32_t));
-		uint32_t remaining = compressed_size;
-		offset += 2 * sizeof(uint32_t);
+		uint32_t length = Load<uint32_t>(handle.Ptr() + offset);
+		uint32_t remaining = length;
+		offset += sizeof(uint32_t);
 
-		data_ptr_t decompression_ptr;
-		unsafe_unique_array<data_t> decompression_buffer;
+		// allocate a buffer to store the string
+		auto alloc_size = MaxValue<idx_t>(Storage::BLOCK_SIZE, length);
+		// allocate a buffer to store the compressed string
+		// TODO: profile this to check if we need to reuse buffer
+		auto target_handle = buffer_manager.Allocate(MemoryTag::OVERFLOW_STRINGS, alloc_size);
+		auto target_ptr = target_handle.Ptr();
 
-		// If string is in single block we decompress straight from it, else we copy first
-		if (remaining <= WriteOverflowStringsToDisk::STRING_SPACE - offset) {
-			decompression_ptr = handle.Ptr() + offset;
-		} else {
-			decompression_buffer = make_unsafe_uniq_array<data_t>(compressed_size);
-			auto target_ptr = decompression_buffer.get();
-
-			// now append the string to the single buffer
-			while (remaining > 0) {
-				idx_t to_write = MinValue<idx_t>(remaining, WriteOverflowStringsToDisk::STRING_SPACE - offset);
-				memcpy(target_ptr, handle.Ptr() + offset, to_write);
-
-				remaining -= to_write;
-				offset += to_write;
-				target_ptr += to_write;
-				if (remaining > 0) {
-					// read the next block
-					D_ASSERT(offset == WriteOverflowStringsToDisk::STRING_SPACE);
-					block_id_t next_block = Load<block_id_t>(handle.Ptr() + WriteOverflowStringsToDisk::STRING_SPACE);
-					block_handle = state.GetHandle(block_manager, next_block);
-					handle = buffer_manager.Pin(block_handle);
-					offset = 0;
-				}
+		// now append the string to the single buffer
+		while (remaining > 0) {
+			idx_t to_write = MinValue<idx_t>(remaining, Storage::BLOCK_SIZE - sizeof(block_id_t) - offset);
+			memcpy(target_ptr, handle.Ptr() + offset, to_write);
+			remaining -= to_write;
+			offset += to_write;
+			target_ptr += to_write;
+			if (remaining > 0) {
+				// read the next block
+				block_id_t next_block = Load<block_id_t>(handle.Ptr() + offset);
+				block_handle = state.GetHandle(block_manager, next_block);
+				handle = buffer_manager.Pin(block_handle);
+				offset = 0;
 			}
-			decompression_ptr = decompression_buffer.get();
 		}
 
-		// overflow strings on disk are gzipped, decompress here
-		auto decompressed_target_handle =
-		    buffer_manager.Allocate(MaxValue<idx_t>(Storage::BLOCK_SIZE, uncompressed_size));
-		auto decompressed_target_ptr = decompressed_target_handle.Ptr();
-		MiniZStream s;
-		s.Decompress(const_char_ptr_cast(decompression_ptr), compressed_size, char_ptr_cast(decompressed_target_ptr),
-		             uncompressed_size);
-
-		auto final_buffer = decompressed_target_handle.Ptr();
-		StringVector::AddHandle(result, std::move(decompressed_target_handle));
-		return ReadString(final_buffer, 0, uncompressed_size);
+		auto final_buffer = target_handle.Ptr();
+		StringVector::AddHandle(result, std::move(target_handle));
+		return ReadString(final_buffer, 0, length);
 	} else {
 		// read the overflow string from memory
 		// first pin the handle, if it is not pinned yet
@@ -420,7 +403,7 @@ void UncompressedStringStorage::ReadStringMarker(data_ptr_t target, block_id_t &
 
 string_location_t UncompressedStringStorage::FetchStringLocation(StringDictionaryContainer dict, data_ptr_t baseptr,
                                                                  int32_t dict_offset) {
-	D_ASSERT(dict_offset >= -1 * Storage::BLOCK_SIZE && dict_offset <= Storage::BLOCK_SIZE);
+	D_ASSERT(dict_offset >= -1 * int32_t(Storage::BLOCK_SIZE) && dict_offset <= int32_t(Storage::BLOCK_SIZE));
 	if (dict_offset < 0) {
 		string_location_t result;
 		ReadStringMarker(baseptr + dict.end - (-1 * dict_offset), result.block_id, result.offset);
@@ -434,7 +417,7 @@ string_t UncompressedStringStorage::FetchStringFromDict(ColumnSegment &segment, 
                                                         Vector &result, data_ptr_t baseptr, int32_t dict_offset,
                                                         uint32_t string_length) {
 	// fetch base data
-	D_ASSERT(dict_offset <= Storage::BLOCK_SIZE);
+	D_ASSERT(dict_offset <= int32_t(Storage::BLOCK_SIZE));
 	string_location_t location = FetchStringLocation(dict, baseptr, dict_offset);
 	return FetchString(segment, dict, result, baseptr, location, string_length);
 }

@@ -1,12 +1,11 @@
 import duckdb
 import tempfile
 import os
-import tempfile
 import pandas._testing as tm
 import datetime
 import csv
 import pytest
-from conftest import NumpyPandas, ArrowPandas
+from conftest import NumpyPandas, ArrowPandas, getTimeSeriesData
 
 
 class TestToCSV(object):
@@ -49,9 +48,9 @@ class TestToCSV(object):
         df = pandas.DataFrame({'a': [5, None, 23, 2], 'b': [45, 234, 234, 2]})
         rel = duckdb.from_df(df)
 
-        rel.to_csv(temp_file_name, header=True)
+        rel.to_csv(temp_file_name)
 
-        csv_rel = duckdb.read_csv(temp_file_name, header=True)
+        csv_rel = duckdb.read_csv(temp_file_name)
         assert rel.execute().fetchall() == csv_rel.execute().fetchall()
 
     @pytest.mark.parametrize('pandas', [NumpyPandas(), ArrowPandas()])
@@ -77,14 +76,14 @@ class TestToCSV(object):
             }
         )
         rel = duckdb.from_df(df)
-        rel.to_csv(temp_file_name, header=True, quotechar='"', escapechar='!')
+        rel.to_csv(temp_file_name, quotechar='"', escapechar='!')
         csv_rel = duckdb.read_csv(temp_file_name, quotechar='"', escapechar='!')
         assert rel.execute().fetchall() == csv_rel.execute().fetchall()
 
     @pytest.mark.parametrize('pandas', [NumpyPandas(), ArrowPandas()])
     def test_to_csv_date_format(self, pandas):
         temp_file_name = os.path.join(tempfile.mkdtemp(), next(tempfile._get_candidate_names()))
-        df = pandas.DataFrame(tm.getTimeSeriesData())
+        df = pandas.DataFrame(getTimeSeriesData())
         dt_index = df.index
         df = pandas.DataFrame({"A": dt_index, "B": dt_index.shift(1)}, index=dt_index)
         rel = duckdb.from_df(df)

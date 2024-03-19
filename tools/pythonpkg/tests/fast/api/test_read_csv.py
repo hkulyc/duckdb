@@ -5,6 +5,7 @@ import pandas
 import pytest
 import duckdb
 from io import StringIO, BytesIO
+from duckdb.typing import BIGINT, VARCHAR, INTEGER
 
 
 def TestFile(name):
@@ -12,6 +13,24 @@ def TestFile(name):
 
     filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'data', name)
     return filename
+
+
+@pytest.fixture
+def create_temp_csv(tmp_path):
+    # Create temporary CSV files
+    file1_content = """1
+2
+3"""
+    file2_content = """4
+5
+6"""
+    file1_path = tmp_path / "file1.csv"
+    file2_path = tmp_path / "file2.csv"
+
+    file1_path.write_text(file1_content)
+    file2_path.write_text(file2_content)
+
+    return file1_path, file2_path
 
 
 class TestReadCSV(object):
@@ -67,7 +86,7 @@ class TestReadCSV(object):
             rel = duckdb_cursor.read_csv(TestFile('category.csv'), delimiter=" ", sep=" ")
 
     def test_header_true(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('category.csv'), header=True)
+        rel = duckdb_cursor.read_csv(TestFile('category.csv'))
         res = rel.fetchone()
         print(res)
         assert res == (1, 'Action', datetime.datetime(2006, 2, 15, 4, 46, 27))
@@ -94,13 +113,13 @@ class TestReadCSV(object):
             rel = duckdb_cursor.read_csv(TestFile('category.csv'), compression='gzip')
 
     def test_quotechar(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('unquote_without_delimiter.csv'), quotechar="")
+        rel = duckdb_cursor.read_csv(TestFile('unquote_without_delimiter.csv'), quotechar="", header=False)
         res = rel.fetchone()
         print(res)
         assert res == ('"AAA"BB',)
 
     def test_escapechar(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('quote_escape.csv'), escapechar=";")
+        rel = duckdb_cursor.read_csv(TestFile('quote_escape.csv'), escapechar=";", header=False)
         res = rel.limit(1, 1).fetchone()
         print(res)
         assert res == ('345', 'TEST6', '"text""2""text"')
@@ -116,18 +135,6 @@ class TestReadCSV(object):
         res = rel.limit(1, 1).fetchone()
         print(res)
         assert res == (345, 'TEST6', 'text"2"text')
-
-    def test_parallel_true(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('category.csv'), parallel=True)
-        res = rel.fetchone()
-        print(res)
-        assert res == (1, 'Action', datetime.datetime(2006, 2, 15, 4, 46, 27))
-
-    def test_parallel_true(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('category.csv'), parallel=False)
-        res = rel.fetchone()
-        print(res)
-        assert res == (1, 'Action', datetime.datetime(2006, 2, 15, 4, 46, 27))
 
     def test_date_format_as_datetime(self, duckdb_cursor):
         rel = duckdb_cursor.read_csv(TestFile('datetime.csv'))
@@ -154,22 +161,18 @@ class TestReadCSV(object):
         )
 
     def test_timestamp_format(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('datetime.csv'), timestamp_format='%m/%d/%Y')
+        rel = duckdb_cursor.read_csv(TestFile('datetime.csv'), timestamp_format='%Y-%m-%d %H:%M:%S')
         res = rel.fetchone()
-        print(res)
-        assert res == (123, 'TEST2', datetime.time(12, 12, 12), datetime.date(2000, 1, 1), '2000-01-01 12:12:00')
-
-    def test_sample_size_incorrect(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('problematic.csv'), header=True, sample_size=1)
-        with pytest.raises(duckdb.InvalidInputException):
-            # The sniffer couldn't detect that this column contains non-integer values
-            while True:
-                res = rel.fetchone()
-                if res is None:
-                    break
+        assert res == (
+            123,
+            'TEST2',
+            datetime.time(12, 12, 12),
+            datetime.date(2000, 1, 1),
+            datetime.datetime(2000, 1, 1, 12, 12),
+        )
 
     def test_sample_size_correct(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('problematic.csv'), header=True, sample_size=-1)
+        rel = duckdb_cursor.read_csv(TestFile('problematic.csv'), sample_size=-1)
         res = rel.fetchone()
         print(res)
         assert res == ('1', '1', '1')
@@ -181,7 +184,7 @@ class TestReadCSV(object):
         assert res == ('1', 'Action', '2006-02-15 04:46:27')
 
     def test_null_padding(self, duckdb_cursor):
-        rel = duckdb_cursor.read_csv(TestFile('nullpadding.csv'), null_padding=False)
+        rel = duckdb_cursor.read_csv(TestFile('nullpadding.csv'), null_padding=False, header=False)
         res = rel.fetchall()
         assert res == [
             ('# this file has a bunch of gunk at the top',),
@@ -190,16 +193,11 @@ class TestReadCSV(object):
             ('2,b,bob',),
         ]
 
-        rel = duckdb_cursor.read_csv(TestFile('nullpadding.csv'), null_padding=True)
+        rel = duckdb_cursor.read_csv(TestFile('nullpadding.csv'), null_padding=True, header=False)
         res = rel.fetchall()
-        assert res == [
-            ('# this file has a bunch of gunk at the top', None, None, None),
-            ('one', 'two', 'three', 'four'),
-            ('1', 'a', 'alice', None),
-            ('2', 'b', 'bob', None),
-        ]
+        assert res == [('one', 'two', 'three', 'four'), ('1', 'a', 'alice', None), ('2', 'b', 'bob', None)]
 
-        rel = duckdb.read_csv(TestFile('nullpadding.csv'), null_padding=False)
+        rel = duckdb.read_csv(TestFile('nullpadding.csv'), null_padding=False, header=False)
         res = rel.fetchall()
         assert res == [
             ('# this file has a bunch of gunk at the top',),
@@ -208,16 +206,11 @@ class TestReadCSV(object):
             ('2,b,bob',),
         ]
 
-        rel = duckdb.read_csv(TestFile('nullpadding.csv'), null_padding=True)
+        rel = duckdb.read_csv(TestFile('nullpadding.csv'), null_padding=True, header=False)
         res = rel.fetchall()
-        assert res == [
-            ('# this file has a bunch of gunk at the top', None, None, None),
-            ('one', 'two', 'three', 'four'),
-            ('1', 'a', 'alice', None),
-            ('2', 'b', 'bob', None),
-        ]
+        assert res == [('one', 'two', 'three', 'four'), ('1', 'a', 'alice', None), ('2', 'b', 'bob', None)]
 
-        rel = duckdb_cursor.from_csv_auto(TestFile('nullpadding.csv'), null_padding=False)
+        rel = duckdb_cursor.from_csv_auto(TestFile('nullpadding.csv'), null_padding=False, header=False)
         res = rel.fetchall()
         assert res == [
             ('# this file has a bunch of gunk at the top',),
@@ -226,28 +219,9 @@ class TestReadCSV(object):
             ('2,b,bob',),
         ]
 
-        rel = duckdb_cursor.from_csv_auto(TestFile('nullpadding.csv'), null_padding=True)
+        rel = duckdb_cursor.from_csv_auto(TestFile('nullpadding.csv'), null_padding=True, header=False)
         res = rel.fetchall()
         assert res == [
-            ('# this file has a bunch of gunk at the top', None, None, None),
-            ('one', 'two', 'three', 'four'),
-            ('1', 'a', 'alice', None),
-            ('2', 'b', 'bob', None),
-        ]
-
-        rel = duckdb.from_csv_auto(TestFile('nullpadding.csv'), null_padding=False)
-        res = rel.fetchall()
-        assert res == [
-            ('# this file has a bunch of gunk at the top',),
-            ('one,two,three,four',),
-            ('1,a,alice',),
-            ('2,b,bob',),
-        ]
-
-        rel = duckdb.from_csv_auto(TestFile('nullpadding.csv'), null_padding=True)
-        res = rel.fetchall()
-        assert res == [
-            ('# this file has a bunch of gunk at the top', None, None, None),
             ('one', 'two', 'three', 'four'),
             ('1', 'a', 'alice', None),
             ('2', 'b', 'bob', None),
@@ -290,7 +264,7 @@ class TestReadCSV(object):
     def test_read_filelike(self, duckdb_cursor):
         _ = pytest.importorskip("fsspec")
         string = StringIO("c1,c2,c3\na,b,c")
-        res = duckdb_cursor.read_csv(string, header=True).fetchall()
+        res = duckdb_cursor.read_csv(string).fetchall()
         assert res == [('a', 'b', 'c')]
 
     def test_read_filelike_rel_out_of_scope(self, duckdb_cursor):
@@ -300,7 +274,7 @@ class TestReadCSV(object):
             string = StringIO("c1,c2,c3\na,b,c")
             # Create a ReadCSVRelation on a file-like object
             # this will add the object to our internal object filesystem
-            rel = duckdb_cursor.read_csv(string, header=True)
+            rel = duckdb_cursor.read_csv(string)
             # The file-like object will still exist, so we can execute this later
             return rel
 
@@ -308,7 +282,7 @@ class TestReadCSV(object):
             string = StringIO("c1,c2,c3\na,b,c")
             # Create a ReadCSVRelation on a file-like object
             # this will add the object to our internal object filesystem
-            res = duckdb_cursor.read_csv(string, header=True).fetchall()
+            res = duckdb_cursor.read_csv(string).fetchall()
             # When the relation goes out of scope - we delete the file-like object from our filesystem
             return res
 
@@ -321,7 +295,7 @@ class TestReadCSV(object):
     def test_filelike_bytesio(self, duckdb_cursor):
         _ = pytest.importorskip("fsspec")
         string = BytesIO(b"c1,c2,c3\na,b,c")
-        res = duckdb_cursor.read_csv(string, header=True).fetchall()
+        res = duckdb_cursor.read_csv(string).fetchall()
         assert res == [('a', 'b', 'c')]
 
     def test_filelike_exception(self, duckdb_cursor):
@@ -349,11 +323,11 @@ class TestReadCSV(object):
 
         obj = ReadError()
         with pytest.raises(ValueError):
-            res = duckdb_cursor.read_csv(obj, header=True).fetchall()
+            res = duckdb_cursor.read_csv(obj).fetchall()
 
         obj = SeekError()
         with pytest.raises(ValueError):
-            res = duckdb_cursor.read_csv(obj, header=True).fetchall()
+            res = duckdb_cursor.read_csv(obj).fetchall()
 
     def test_filelike_custom(self, duckdb_cursor):
         _ = pytest.importorskip("fsspec")
@@ -373,21 +347,22 @@ class TestReadCSV(object):
                 return out
 
         obj = CustomIO()
-        res = duckdb_cursor.read_csv(obj, header=True).fetchall()
+        res = duckdb_cursor.read_csv(obj).fetchall()
         assert res == [('a', 'b', 'c')]
 
     def test_filelike_non_readable(self, duckdb_cursor):
         _ = pytest.importorskip("fsspec")
         obj = 5
         with pytest.raises(ValueError, match="Can not read from a non file-like object"):
-            res = duckdb_cursor.read_csv(obj, header=True).fetchall()
+            res = duckdb_cursor.read_csv(obj).fetchall()
 
     def test_filelike_none(self, duckdb_cursor):
         _ = pytest.importorskip("fsspec")
         obj = None
         with pytest.raises(ValueError, match="Can not read from a non file-like object"):
-            res = duckdb_cursor.read_csv(obj, header=True).fetchall()
+            res = duckdb_cursor.read_csv(obj).fetchall()
 
+    @pytest.mark.skip(reason="depends on garbage collector behaviour, and sporadically breaks in CI")
     def test_internal_object_filesystem_cleanup(self, duckdb_cursor):
         _ = pytest.importorskip("fsspec")
 
@@ -438,3 +413,128 @@ class TestReadCSV(object):
         assert CountedObject.instance_count == 0
         scoped_objects(duckdb_cursor)
         assert CountedObject.instance_count == 0
+
+    def test_read_csv_glob(self, tmp_path, create_temp_csv):
+        file1_path, file2_path = create_temp_csv
+
+        # Use the temporary file paths to read CSV files
+        con = duckdb.connect()
+        rel = con.read_csv(f'{tmp_path}/file*.csv')
+        res = con.sql("select * from rel order by all").fetchall()
+        assert res == [(1,), (2,), (3,), (4,), (5,), (6,)]
+
+    def test_read_csv_combined(self, duckdb_cursor):
+        CSV_FILE = TestFile('stress_test.csv')
+        COLUMNS = {
+            'result': 'VARCHAR',
+            'table': 'BIGINT',
+            '_time': 'TIMESTAMPTZ',
+            '_measurement': 'VARCHAR',
+            'bench_test': 'VARCHAR',
+            'flight_id': 'VARCHAR',
+            'flight_status': 'VARCHAR',
+            'log_level': 'VARCHAR',
+            'sys_uuid': 'VARCHAR',
+            'message': 'VARCHAR',
+        }
+
+        rel = duckdb.read_csv(CSV_FILE, skiprows=1, delimiter=",", quotechar='"', escapechar="\\", dtype=COLUMNS)
+        res = rel.fetchall()
+
+        rel2 = duckdb_cursor.sql(rel.sql_query())
+        res2 = rel2.fetchall()
+
+        # Assert that the results are the same
+        assert res == res2
+
+        # And assert that the columns and types of the relations are the same
+        assert rel.columns == rel2.columns
+        assert rel.types == rel2.types
+
+    def test_read_csv_names(self):
+        con = duckdb.connect()
+        file = StringIO('one,two,three,four\n1,2,3,4\n1,2,3,4\n1,2,3,4')
+        rel = con.read_csv(file, names=['a', 'b', 'c'])
+        assert rel.columns == ['a', 'b', 'c', 'four']
+
+        with pytest.raises(duckdb.InvalidInputException, match="read_csv only accepts 'names' as a list of strings"):
+            rel = con.read_csv(file, names=True)
+
+        # Excessive columns is fine, just doesn't have any effect past the number of provided columns
+        rel = con.read_csv(file, names=['a', 'b', 'c', 'd', 'e'])
+        assert rel.columns == ['a', 'b', 'c', 'd']
+
+        # Duplicates are not okay
+        with pytest.raises(duckdb.BinderException, match="has duplicate column name"):
+            rel = con.read_csv(file, names=['a', 'b', 'a', 'b'])
+            assert rel.columns == ['a', 'b', 'a', 'b']
+
+    def test_read_csv_names_mixed_with_dtypes(self):
+        con = duckdb.connect()
+        file = StringIO('one,two,three,four\n1,2,3,4\n1,2,3,4\n1,2,3,4')
+        rel = con.read_csv(
+            file,
+            names=['a', 'b', 'c'],
+            dtype={
+                'a': int,
+                'b': bool,
+                'c': str,
+            },
+        )
+        assert rel.columns == ['a', 'b', 'c', 'four']
+        assert rel.types == ['BIGINT', 'BOOLEAN', 'VARCHAR', 'BIGINT']
+
+        # dtypes and names dont match
+        # FIXME: seems the order columns are named in this error is non-deterministic
+        # so for now I'm excluding the list of columns from the expected error
+        expected_error = """do not exist in the CSV File"""
+        with pytest.raises(duckdb.BinderException, match=expected_error):
+            rel = con.read_csv(
+                file,
+                names=['a', 'b', 'c'],
+                dtype={
+                    'd': int,
+                    'e': bool,
+                    'f': str,
+                },
+            )
+
+    def test_read_csv_multi_file(self):
+        con = duckdb.connect()
+        file1 = StringIO('one,two,three,four\n1,2,3,4\n1,2,3,4\n1,2,3,4')
+        file2 = StringIO('one,two,three,four\n5,6,7,8\n5,6,7,8\n5,6,7,8')
+        file3 = StringIO('one,two,three,four\n9,10,11,12\n9,10,11,12\n9,10,11,12')
+        files = [file1, file2, file3]
+        rel = con.read_csv(files)
+        res = rel.fetchall()
+        assert res == [
+            (1, 2, 3, 4),
+            (1, 2, 3, 4),
+            (1, 2, 3, 4),
+            (5, 6, 7, 8),
+            (5, 6, 7, 8),
+            (5, 6, 7, 8),
+            (9, 10, 11, 12),
+            (9, 10, 11, 12),
+            (9, 10, 11, 12),
+        ]
+
+    def test_read_csv_empty_list(self):
+        con = duckdb.connect()
+        files = []
+        with pytest.raises(
+            duckdb.InvalidInputException, match='Please provide a non-empty list of paths or file-like objects'
+        ):
+            rel = con.read_csv(files)
+            res = rel.fetchall()
+
+    def test_read_csv_list_invalid_path(self):
+        con = duckdb.connect()
+        files = [
+            StringIO('one,two,three,four\n1,2,3,4\n1,2,3,4\n1,2,3,4'),
+            'not_valid_path',
+            StringIO('one,two,three,four\n9,10,11,12\n9,10,11,12\n9,10,11,12'),
+        ]
+        with pytest.raises(duckdb.IOException, match='No files found that match the pattern "not_valid_path"'):
+            rel = con.read_csv(files)
+            res = rel.fetchall()

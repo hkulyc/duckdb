@@ -11,6 +11,13 @@ shared_ptr<DuckDBPyType> PyConnectionWrapper::UnionType(const py::object &member
 	return conn->UnionType(members);
 }
 
+py::list PyConnectionWrapper::ExtractStatements(const string &query, shared_ptr<DuckDBPyConnection> conn) {
+	if (!conn) {
+		conn = DuckDBPyConnection::DefaultConnection();
+	}
+	return conn->ExtractStatements(query);
+}
+
 shared_ptr<DuckDBPyType> PyConnectionWrapper::EnumType(const string &name, const shared_ptr<DuckDBPyType> &type,
                                                        const py::list &values, shared_ptr<DuckDBPyConnection> conn) {
 	if (!conn) {
@@ -33,12 +40,20 @@ shared_ptr<DuckDBPyType> PyConnectionWrapper::StringType(const string &collation
 	return conn->StringType(collation);
 }
 
-shared_ptr<DuckDBPyType> PyConnectionWrapper::ArrayType(const shared_ptr<DuckDBPyType> &type,
+shared_ptr<DuckDBPyType> PyConnectionWrapper::ArrayType(const shared_ptr<DuckDBPyType> &type, idx_t size,
                                                         shared_ptr<DuckDBPyConnection> conn) {
 	if (!conn) {
 		conn = DuckDBPyConnection::DefaultConnection();
 	}
-	return conn->ArrayType(type);
+	return conn->ArrayType(type, size);
+}
+
+shared_ptr<DuckDBPyType> PyConnectionWrapper::ListType(const shared_ptr<DuckDBPyType> &type,
+                                                       shared_ptr<DuckDBPyConnection> conn) {
+	if (!conn) {
+		conn = DuckDBPyConnection::DefaultConnection();
+	}
+	return conn->ListType(type);
 }
 
 shared_ptr<DuckDBPyType> PyConnectionWrapper::MapType(const shared_ptr<DuckDBPyType> &key,
@@ -65,7 +80,7 @@ shared_ptr<DuckDBPyType> PyConnectionWrapper::Type(const string &type_str, share
 	return conn->Type(type_str);
 }
 
-shared_ptr<DuckDBPyConnection> PyConnectionWrapper::ExecuteMany(const string &query, py::object params,
+shared_ptr<DuckDBPyConnection> PyConnectionWrapper::ExecuteMany(const py::object &query, py::object params,
                                                                 shared_ptr<DuckDBPyConnection> conn) {
 	return conn->ExecuteMany(query, params);
 }
@@ -92,7 +107,7 @@ unique_ptr<DuckDBPyRelation> PyConnectionWrapper::AggregateDF(const PandasDataFr
 	return conn->FromDF(df)->Aggregate(expr, groups);
 }
 
-shared_ptr<DuckDBPyConnection> PyConnectionWrapper::Execute(const string &query, py::object params, bool many,
+shared_ptr<DuckDBPyConnection> PyConnectionWrapper::Execute(const py::object &query, py::object params, bool many,
                                                             shared_ptr<DuckDBPyConnection> conn) {
 	return conn->Execute(query, params, many);
 }
@@ -245,16 +260,18 @@ unique_ptr<DuckDBPyRelation> PyConnectionWrapper::ReadJSON(const string &filenam
 	return conn->ReadJSON(filename, columns, sample_size, maximum_depth, records, format);
 }
 
-unique_ptr<DuckDBPyRelation> PyConnectionWrapper::ReadCSV(
-    const py::object &name, shared_ptr<DuckDBPyConnection> conn, const py::object &header,
-    const py::object &compression, const py::object &sep, const py::object &delimiter, const py::object &dtype,
-    const py::object &na_values, const py::object &skiprows, const py::object &quotechar, const py::object &escapechar,
-    const py::object &encoding, const py::object &parallel, const py::object &date_format,
-    const py::object &timestamp_format, const py::object &sample_size, const py::object &all_varchar,
-    const py::object &normalize_names, const py::object &filename, const py::object &null_padding) {
+unique_ptr<DuckDBPyRelation>
+PyConnectionWrapper::ReadCSV(const py::object &name, shared_ptr<DuckDBPyConnection> conn, const py::object &header,
+                             const py::object &compression, const py::object &sep, const py::object &delimiter,
+                             const py::object &dtype, const py::object &na_values, const py::object &skiprows,
+                             const py::object &quotechar, const py::object &escapechar, const py::object &encoding,
+                             const py::object &parallel, const py::object &date_format,
+                             const py::object &timestamp_format, const py::object &sample_size,
+                             const py::object &all_varchar, const py::object &normalize_names,
+                             const py::object &filename, const py::object &null_padding, const py::object &names) {
 	return conn->ReadCSV(name, header, compression, sep, delimiter, dtype, na_values, skiprows, quotechar, escapechar,
 	                     encoding, parallel, date_format, timestamp_format, sample_size, all_varchar, normalize_names,
-	                     filename, null_padding);
+	                     filename, null_padding, names);
 }
 
 py::list PyConnectionWrapper::FetchMany(idx_t size, shared_ptr<DuckDBPyConnection> conn) {
@@ -316,7 +333,7 @@ unique_ptr<DuckDBPyRelation> PyConnectionWrapper::Values(py::object values, shar
 	return conn->Values(std::move(values));
 }
 
-unique_ptr<DuckDBPyRelation> PyConnectionWrapper::RunQuery(const string &query, const string &alias,
+unique_ptr<DuckDBPyRelation> PyConnectionWrapper::RunQuery(const py::object &query, const string &alias,
                                                            shared_ptr<DuckDBPyConnection> conn) {
 	return conn->RunQuery(query, alias);
 }

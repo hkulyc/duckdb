@@ -1,6 +1,7 @@
 #include "httpfs.hpp"
 
 #include "duckdb/common/atomic.hpp"
+#include "duckdb/common/exception/http_exception.hpp"
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/http_state.hpp"
 #include "duckdb/common/thread.hpp"
@@ -34,6 +35,10 @@ HTTPParams HTTPParams::ReadFrom(FileOpener *opener) {
 	uint64_t retry_wait_ms = DEFAULT_RETRY_WAIT_MS;
 	float retry_backoff = DEFAULT_RETRY_BACKOFF;
 	bool force_download = DEFAULT_FORCE_DOWNLOAD;
+	bool keep_alive = DEFAULT_KEEP_ALIVE;
+	bool enable_server_cert_verification = DEFAULT_ENABLE_SERVER_CERT_VERIFICATION;
+	std::string ca_cert_file = "";
+
 	Value value;
 	if (FileOpener::TryGetCurrentSetting(opener, "http_timeout", value)) {
 		timeout = value.GetValue<uint64_t>();
@@ -50,8 +55,19 @@ HTTPParams HTTPParams::ReadFrom(FileOpener *opener) {
 	if (FileOpener::TryGetCurrentSetting(opener, "http_retry_backoff", value)) {
 		retry_backoff = value.GetValue<float>();
 	}
+	if (FileOpener::TryGetCurrentSetting(opener, "http_keep_alive", value)) {
+		keep_alive = value.GetValue<bool>();
+	}
+	if (FileOpener::TryGetCurrentSetting(opener, "enable_server_cert_verification", value)) {
+		enable_server_cert_verification = value.GetValue<bool>();
+	}
+	if (FileOpener::TryGetCurrentSetting(opener, "ca_cert_file", value)) {
+		ca_cert_file = value.ToString();
+	}
 
-	return {timeout, retries, retry_wait_ms, retry_backoff, force_download};
+	return {
+	    timeout,     retries, retry_wait_ms, retry_backoff, force_download, keep_alive, enable_server_cert_verification,
+	    ca_cert_file};
 }
 
 void HTTPFileSystem::ParseUrl(string &url, string &path_out, string &proto_host_port_out) {
@@ -100,6 +116,7 @@ RunRequestWithRetry(const std::function<duckdb_httplib_openssl::Result(void)> &r
 			case 408: // Request Timeout
 			case 418: // Server is pretending to be a teapot
 			case 429: // Rate limiter hit
+			case 500: // Server has error
 			case 503: // Server has error
 			case 504: // Server has error
 				break;
@@ -181,8 +198,11 @@ unique_ptr<duckdb_httplib_openssl::Client> HTTPFileSystem::GetClient(const HTTPP
                                                                      const char *proto_host_port) {
 	auto client = make_uniq<duckdb_httplib_openssl::Client>(proto_host_port);
 	client->set_follow_location(true);
-	client->set_keep_alive(true);
-	client->enable_server_certificate_verification(false);
+	client->set_keep_alive(http_params.keep_alive);
+	if (!http_params.ca_cert_file.empty()) {
+		client->set_ca_cert_path(http_params.ca_cert_file.c_str());
+	}
+	client->enable_server_certificate_verification(http_params.enable_server_cert_verification);
 	client->set_write_timeout(http_params.timeout);
 	client->set_read_timeout(http_params.timeout);
 	client->set_connection_timeout(http_params.timeout);
@@ -329,6 +349,15 @@ unique_ptr<ResponseWrapper> HTTPFileSystem::GetRangeRequest(FileHandle &handle, 
 				    hfs.state->total_bytes_received += data_length;
 			    }
 			    if (buffer_out != nullptr) {
+				    if (data_length + out_offset > buffer_out_len) {
+					    // As of v0.8.2-dev4424 we might end up here when very big files are served from servers
+					    // that returns more data than requested via range header. This is an uncommon but legal
+					    // behaviour, so we have to improve logic elsewhere to properly handle this case.
+
+					    // To avoid corruption of memory, we bail out.
+					    throw IOException("Server sent back more data than expected, `SET force_download=true` might "
+					                      "help in this case");
+				    }
 				    memcpy(buffer_out + out_offset, data, data_length);
 				    out_offset += data_length;
 			    }
@@ -629,8 +658,14 @@ void HTTPFileHandle::Initialize(FileOpener *opener) {
 				                    full_download_result->http_url, to_string(full_download_result->code),
 				                    full_download_result->error);
 			}
-			// Mark the file as initialized, unlocking it and allowing parallel reads
-			cached_file_handle->SetInitialized();
+
+			// Mark the file as initialized, set its final length, and unlock it to allowing parallel reads
+			cached_file_handle->SetInitialized(length);
+
+			// We shouldn't write these to cache
+			should_write_cache = false;
+		} else {
+			length = cached_file_handle->GetSize();
 		}
 	}
 

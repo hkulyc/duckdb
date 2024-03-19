@@ -68,6 +68,11 @@ public:
 	shared_ptr<DuckDBPyExpression> And(const DuckDBPyExpression &other);
 	shared_ptr<DuckDBPyExpression> Or(const DuckDBPyExpression &other);
 
+	// IS NULL / IS NOT NULL
+
+	shared_ptr<DuckDBPyExpression> IsNull();
+	shared_ptr<DuckDBPyExpression> IsNotNull();
+
 	// IN / NOT IN
 
 	shared_ptr<DuckDBPyExpression> In(const py::args &args);
@@ -89,7 +94,7 @@ public:
 
 public:
 	static shared_ptr<DuckDBPyExpression> StarExpression(const py::list &exclude = py::none());
-	static shared_ptr<DuckDBPyExpression> ColumnExpression(const string &function_name);
+	static shared_ptr<DuckDBPyExpression> ColumnExpression(const string &column_name);
 	static shared_ptr<DuckDBPyExpression> ConstantExpression(const py::object &value);
 	static shared_ptr<DuckDBPyExpression> CaseExpression(const DuckDBPyExpression &condition,
 	                                                     const DuckDBPyExpression &value);
