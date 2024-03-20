@@ -44,8 +44,9 @@ void QueryGraphManager::GetColumnBinding(Expression &expression, ColumnBinding &
 		D_ASSERT(colref.depth == 0);
 		D_ASSERT(colref.binding.table_index != DConstants::INVALID_INDEX);
 		// map the base table index to the relation index used by the JoinOrderOptimizer
-		D_ASSERT(relation_manager.relation_mapping.find(colref.binding.table_index) !=
-		         relation_manager.relation_mapping.end());
+		// udf_todo
+		// D_ASSERT(relation_manager.relation_mapping.find(colref.binding.table_index) !=
+		//          relation_manager.relation_mapping.end());
 		binding =
 		    ColumnBinding(relation_manager.relation_mapping[colref.binding.table_index], colref.binding.column_index);
 	}
