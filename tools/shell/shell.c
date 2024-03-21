@@ -19677,6 +19677,79 @@ static int runOneSqlLine(ShellState *p, char *zSql, FILE *in, int startline){
   return 0;
 }
 
+// only available for POSIX
+#include "regex.h"
+
+static int udf_start(const char *zSql, size_t nSql){
+  const char *udf_start_pattern = "^[ ]*CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION[ ]+";
+
+  const char *source = zSql;
+  regex_t udf_start_pattern_regex;
+  int ret;
+  char msgbuf[100];
+
+  // Compile the regular expression
+  regcomp(&udf_start_pattern_regex, udf_start_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+
+  // match udf_start_pattern
+  ret = regexec(&udf_start_pattern_regex, source, 0, NULL, 0);
+  regfree(&udf_start_pattern_regex);
+  if (!ret) {
+    return 1;
+  }
+  else if (ret == REG_NOMATCH) {
+    return 0;
+  }
+  else {
+    regerror(ret, &udf_start_pattern_regex, msgbuf, sizeof(msgbuf));
+    printf("udf_start_pattern_regex match failed: %s\n", msgbuf);
+    exit(1);
+  }
+}
+
+static int udf_complete(const char *zSql, size_t nSql){
+  int complete = 0;
+
+  // use [ ] instead of \\s for utf8 support
+  const char *udf_pattern = "^[ ]*CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION[ ]+.*LANGUAGE[ ]+PLPGSQL";
+
+  const char *source = zSql;
+  regex_t udf_pattern_regex;
+  int ret;
+  char msgbuf[100];
+
+  // Compile the regular expression
+  ret = regcomp(&udf_pattern_regex, udf_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+  if (ret) {
+      printf("Could not compile udf_pattern_regex\n");
+      exit(1);
+  }
+
+  if(!udf_start(zSql, nSql)){
+    // not a udf, so always complete
+    return 1;
+  }
+  
+  // match udf_pattern
+  ret = regexec(&udf_pattern_regex, source, 0, NULL, 0);
+  // Free compiled regular expression
+  regfree(&udf_pattern_regex);
+
+  if (!ret) {
+    complete = 1;
+  }
+  else if (ret == REG_NOMATCH) {
+    complete = 0;
+  }
+  else {
+    regerror(ret, &udf_pattern_regex, msgbuf, sizeof(msgbuf));
+    printf("udf_pattern_regex match failed: %s\n", msgbuf);
+    exit(1);
+  }
+
+  return complete;
+}
+
 
 /*
 ** Read input from *in and process it.  If *in==0 then input
@@ -19769,7 +19842,7 @@ static int process_input(ShellState *p){
       nSql += nLine;
     }
     if( nSql && line_contains_semicolon(&zSql[nSqlPrior], nSql-nSqlPrior)
-                && sqlite3_complete(zSql) ){
+                && sqlite3_complete(zSql) && udf_complete(zSql, nSql) ){
       errCnt += runOneSqlLine(p, zSql, p->in, startline);
       nSql = 0;
       if( p->outCount ){

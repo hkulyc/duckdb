@@ -486,7 +486,7 @@ void ClientContext::HandlePragmaStatements(vector<unique_ptr<SQLStatement>> &sta
 	handler.HandlePragmaStatements(*lock, statements);
 }
 
-unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query) {
+unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query, bool disableColumnBinding) {
 	auto lock = LockContext();
 
 	auto statements = ParseStatementsInternal(*lock, query);
@@ -508,6 +508,45 @@ unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query) {
 			plan = optimizer.Optimize(std::move(plan));
 		}
 
+		if (disableColumnBinding) {
+			return;
+		}
+		ColumnBindingResolver resolver;
+		resolver.Verify(*plan);
+		resolver.VisitOperator(*plan);
+
+		plan->ResolveOperatorTypes();
+	});
+	return plan;
+}
+
+unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query, bool disableColumnBinding, shared_ptr<Binder>& plannerBinder) {
+	auto lock = LockContext();
+
+	auto statements = ParseStatementsInternal(*lock, query);
+	if (statements.size() != 1) {
+		throw Exception("ExtractPlan can only prepare a single statement");
+	}
+
+	unique_ptr<LogicalOperator> plan;
+	client_data->http_state = make_shared<HTTPState>();
+	RunFunctionInTransactionInternal(*lock, [&]() {
+		Planner planner(*this);
+		planner.CreatePlan(std::move(statements[0]));
+		D_ASSERT(planner.plan);
+
+		plan = std::move(planner.plan);
+
+		if (config.enable_optimizer) {
+			Optimizer optimizer(*planner.binder, *this);
+			plan = optimizer.Optimize(std::move(plan));
+		}
+
+		plannerBinder = planner.binder;
+
+		if (disableColumnBinding) {
+			return;
+		}
 		ColumnBindingResolver resolver;
 		resolver.Verify(*plan);
 		resolver.VisitOperator(*plan);

@@ -147,9 +147,56 @@ vector<string> SplitQueryStringIntoStatements(const string &query) {
 	return query_statements;
 }
 
+// only available for POSIX
+#include "regex.h"
+
+static int udf_start(const char *zSql, size_t nSql){
+  const char *udf_start_pattern = "^[ ]*CREATE[ ]+(OR[ ]+REPLACE[ ]+)?FUNCTION[ ]+";
+
+  const char *source = zSql;
+  regex_t udf_start_pattern_regex;
+  int ret;
+  char msgbuf[100];
+
+  // Compile the regular expression
+  regcomp(&udf_start_pattern_regex, udf_start_pattern, REG_EXTENDED | REG_ICASE | REG_NOSUB);
+
+  // match udf_start_pattern
+  ret = regexec(&udf_start_pattern_regex, source, 0, NULL, 0);
+  regfree(&udf_start_pattern_regex);
+  if (!ret) {
+    return 1;
+  }
+  else if (ret == REG_NOMATCH) {
+    return 0;
+  }
+  else {
+    regerror(ret, &udf_start_pattern_regex, msgbuf, sizeof(msgbuf));
+    printf("udf_start_pattern_regex match failed: %s\n", msgbuf);
+    exit(1);
+  }
+}
+
+// replace every single quote with two single quotes
+string double_quote(const string &str) {
+  string result;
+  for (auto &c : str) {
+	if (c == '\'') {
+	  result += '\'';
+	}
+	result += c;
+  }
+  return result;
+}
+
 void Parser::ParseQuery(const string &query) {
 	Transformer transformer(options);
 	string parser_error;
+	if(udf_start(query.c_str(), query.size())){
+		string new_query = double_quote(query);
+		new_query = "pragma transpile('" + new_query + "');";
+		return ParseQuery(new_query);
+	}
 	{
 		// check if there are any unicode spaces in the string
 		string new_query;
