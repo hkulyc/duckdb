@@ -247,7 +247,8 @@ BoundCastInfo DefaultCasts::DecimalCastSwitch(BindCastInput &input, const Logica
 		return BoundCastInfo(FromDecimalCast<uint64_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "uint64_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::HUGEINT:
 		return BoundCastInfo(FromDecimalCast<hugeint_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "hugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
-	// udf_todo: decimal to decimal conversion
+	case LogicalTypeId::UHUGEINT:
+		return BoundCastInfo(FromDecimalCast<uhugeint_t>, ScalarFunctionInfo("TryCastFromDecimal::Operation", {ScalarFunctionInfo::LogicalTypeToCppType(source), "uhugeint_t"}, {ScalarFunctionInfo::DecimalCastWrapper}, {DecimalType::GetWidth(source), DecimalType::GetScale(source)}));
 	case LogicalTypeId::DECIMAL: {
 		// decimal to decimal cast
 		// first we need to figure out the source and target internal types

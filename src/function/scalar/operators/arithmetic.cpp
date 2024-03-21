@@ -50,8 +50,11 @@ static scalar_function_t GetScalarIntegerFunction(PhysicalType type) {
 	case PhysicalType::UINT64:
 		function = &ScalarFunction::BinaryFunction<uint64_t, uint64_t, uint64_t, OP>;
 		break;
+	case PhysicalType::UINT128:
+		function = &ScalarFunction::BinaryFunction<uhugeint_t, uhugeint_t, uhugeint_t, OP>;
+		break;
 	default:
-		throw NotImplementedException("Unimplemented type for GetScalarBinaryFunction");
+		throw NotImplementedException("Unimplemented type for GetScalarBinaryFunction: %s", TypeIdToString(type));
 	}
 	return function;
 }
@@ -95,9 +98,6 @@ template <class OP>
 static scalar_function_t GetScalarBinaryFunction(PhysicalType type) {
 	scalar_function_t function;
 	switch (type) {
-	case PhysicalType::INT128:
-		function = &ScalarFunction::BinaryFunction<hugeint_t, hugeint_t, hugeint_t, OP>;
-		break;
 	case PhysicalType::FLOAT:
 		function = &ScalarFunction::BinaryFunction<float, float, float, OP>;
 		break;
@@ -301,7 +301,7 @@ unique_ptr<FunctionData> BindDecimalAddSubtract(ClientContext &context, ScalarFu
 			bound_function.function_info.cpp_name = "SubtractOperator::Operation";
 		GetScalarBinaryFunctionInfoTemplate(result_type.InternalType(), bound_function.function_info.template_args);
 	}
-	if (result_type.InternalType() != PhysicalType::INT128) {
+	if (result_type.InternalType() != PhysicalType::INT128 && result_type.InternalType() != PhysicalType::UINT128) {
 		if (IS_SUBTRACT) {
 			bound_function.statistics =
 			    PropagateNumericStats<TryDecimalSubtract, SubtractPropagateStatistics, SubtractOperator>;
@@ -965,10 +965,12 @@ struct BinaryZeroIsNullWrapper {
 	}
 };
 
-struct BinaryZeroIsNullHugeintWrapper {
+struct BinaryNumericDivideHugeintWrapper {
 	template <class FUNC, class OP, class LEFT_TYPE, class RIGHT_TYPE, class RESULT_TYPE>
 	static inline RESULT_TYPE Operation(FUNC fun, LEFT_TYPE left, RIGHT_TYPE right, ValidityMask &mask, idx_t idx) {
-		if (right.upper == 0 && right.lower == 0) {
+		if (left == NumericLimits<LEFT_TYPE>::Minimum() && right == -1) {
+			throw OutOfRangeException("Overflow in division of %s / %s", left.ToString(), right.ToString());
+		} else if (right == 0) {
 			mask.SetInvalid(idx);
 			return left;
 		} else {
@@ -1025,6 +1027,10 @@ static scalar_function_t GetBinaryFunctionIgnoreZero(const LogicalType &type, Sc
 		function_info.template_args = {"hugeint_t", "hugeint_t", "hugeint_t"};
 		function_info.special_handling.push_back(ScalarFunctionInfo::BinaryZeroIsNullHugeintWrapper);
 		return BinaryScalarFunctionIgnoreZero<hugeint_t, hugeint_t, hugeint_t, OP, BinaryZeroIsNullHugeintWrapper>;
+	case LogicalTypeId::UHUGEINT:
+		function_info.template_args = {"uhugeint_t", "uhugeint_t", "uhugeint_t"};
+		function_info.special_handling.push_back(ScalarFunctionInfo::BinaryZeroIsNullWrapper);
+		return BinaryScalarFunctionIgnoreZero<uhugeint_t, uhugeint_t, uhugeint_t, OP>;
 	case LogicalTypeId::FLOAT:
 		function_info.template_args = {"float", "float", "float"};
 		function_info.special_handling.push_back(ScalarFunctionInfo::BinaryZeroIsNullWrapper);
