@@ -71,6 +71,134 @@ typedef void (*function_serialize_t)(Serializer &serializer, const optional_ptr<
                                      const ScalarFunction &function);
 typedef unique_ptr<FunctionData> (*function_deserialize_t)(Deserializer &deserializer, ScalarFunction &function);
 
+/**
+ * This is used to register the SCALAR scalar functions
+*/
+class ScalarFunctionInfo{
+public:
+enum SpecialValueHandling : uint8_t 
+			{
+				BinaryNumericDivideWrapper, 
+				BinaryZeroIsNullWrapper, 
+				BinaryZeroIsNullHugeintWrapper, 
+				VectorFrontWrapper,						// insert Vector& result as the first argument to the function
+				VectorBackWrapper,						// append Vector& result as the last argument to the function
+				SubStringAutoLengthWrapper,				// auto add the length of the string
+														// as the thrird argument
+				ConstantVectorWrapper,					// for constant input should only call the function once	
+				NumericCastWrapper,						// most common cast op, first argument is the source second is the reference to target
+				DecimalCastWrapper, 					// (source, result, error_message, width, scale);
+				ErrorCastWrapper,						// (source, result, error_message, data->strict = false)
+				DecimalVectorBackWrapper,				// (source, width, scale, vector);
+				DecimalDeciamlCastWrapper				// need its own function, should be exclusive
+			};
+public:
+    /**
+     * function name in the header file 
+    */
+    std::string cpp_name;
+    /**
+     * if the function definition is templated (not used)
+    */
+    bool templated = false;
+	std::vector<std::string> template_args;
+    /**
+     * if use the default null handling method which is pass NULL return NULL
+	 * udf_todo: implement the specific rule for each type
+    */
+    // bool default_null = true;
+	std::vector<SpecialValueHandling> special_handling;
+	/**
+	 * if the function is a switch function (not used)
+	*/
+    bool if_switch = false;
+	/**
+	 * if the function is a string function (not used)
+	*/
+    bool if_string = false;
+	/**
+	 * additional parameters for the decimal casts to use
+	*/
+	std::pair<uint8_t, uint8_t> width_scale = {0, 0};
+	/**
+	 * the destination width and scale
+	*/
+	std::pair<uint8_t, uint8_t> width_scale2 = {0, 0};
+    /**
+     * length of input_type should be the same as return_type because they are 
+     * one to one mapping
+    */
+    // vector<vector<LogicalType>> input_type;
+    // vector<LogicalType> return_type;
+    DUCKDB_API ScalarFunctionInfo(){}
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name) : cpp_name(cpp_name) {}
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args) : cpp_name(cpp_name), templated(true), template_args(template_args) {}
+	// DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, b) : cpp_name(cpp_name), templated(true), template_args(template_args), if_string(if_string) {}
+	// DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<SpecialValueHandling> special_handling, bool place_holder, bool place_holder2) : cpp_name(cpp_name), special_handling(special_handling) {}
+	// DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<SpecialValueHandling> special_handling, bool if_string) : cpp_name(cpp_name), special_handling(special_handling), if_string(if_string) {}
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling) {
+		if(template_args.size() > 0) templated = true;
+	}
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling, std::pair<uint8_t, uint8_t> width_scale) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling), width_scale(width_scale) {
+		if(template_args.size() > 0) templated = true;
+	}
+	DUCKDB_API ScalarFunctionInfo(std::string cpp_name, std::vector<std::string> template_args, std::vector<SpecialValueHandling> special_handling, std::pair<uint8_t, uint8_t> width_scale, std::pair<uint8_t, uint8_t> width_scale2) : cpp_name(cpp_name), template_args(template_args), special_handling(special_handling), width_scale(width_scale), width_scale2(width_scale2) {
+		if(template_args.size() > 0) templated = true;
+	}
+	// DUCKDB_API ScalarFunctionInfo(string cpp_name, bool templated = false, bool if_switch = false, bool default_null = true, bool if_string = false):
+    //                         cpp_name(cpp_name), templated(templated), default_null(default_null), if_switch(if_switch), if_string(if_string){}
+	DUCKDB_API ScalarFunctionInfo &operator=(const ScalarFunctionInfo &other) {
+		cpp_name = other.cpp_name;
+		templated = other.templated;
+		template_args = other.template_args;
+		// default_null = other.default_null;
+		special_handling = other.special_handling;
+		if_switch = other.if_switch;
+		if_string = other.if_string;
+		width_scale = other.width_scale;
+		width_scale2 = other.width_scale2;
+		return *this;
+	}
+	DUCKDB_API ScalarFunctionInfo &operator=(ScalarFunctionInfo &&other) {
+		cpp_name = std::move(other.cpp_name);
+		templated = other.templated;
+		template_args = std::move(other.template_args);
+		// default_null = other.default_null;
+		special_handling = std::move(other.special_handling);
+		if_switch = other.if_switch;
+		if_string = other.if_string;
+		width_scale = other.width_scale;
+		width_scale2 = other.width_scale2;
+		return *this;
+	}
+	DUCKDB_API ScalarFunctionInfo(ScalarFunctionInfo &&other){
+		*this = std::move(other);
+	}
+	DUCKDB_API ScalarFunctionInfo(const ScalarFunctionInfo &other){
+		*this = other;
+	}
+
+	static DUCKDB_API std::string DecimalTypeToCppType(int width, int scale);
+	static DUCKDB_API std::string LogicalTypeToCppType(const LogicalType &logical_type);
+	static DUCKDB_API std::string PhysicalTypeIdToCppType(PhysicalType type_id);
+	/**
+	 * get the string representation of the function
+	*/
+	DUCKDB_API std::string str(){
+		std::string ret = cpp_name;
+		if(template_args.size() > 0){
+			ret += "<";
+			for(auto &arg : template_args){
+				ret += arg + ", ";
+			}
+			ret = ret.substr(0, ret.size()-2);
+			ret += ">";
+		}
+		// if(if_string) ret += "(string)";
+		return ret;
+	}
+};
+
 class ScalarFunction : public BaseScalarFunction {
 public:
 	DUCKDB_API ScalarFunction(string name, vector<LogicalType> arguments, LogicalType return_type,
@@ -81,6 +209,16 @@ public:
 	                          FunctionSideEffects side_effects = FunctionSideEffects::NO_SIDE_EFFECTS,
 	                          FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING,
 	                          bind_lambda_function_t bind_lambda = nullptr);
+	
+	DUCKDB_API ScalarFunction(string name, vector<LogicalType> arguments, LogicalType return_type,
+	                          scalar_function_t function, ScalarFunctionInfo &&function_info, bind_scalar_function_t bind = nullptr,
+	                          dependency_function_t dependency = nullptr, function_statistics_t statistics = nullptr,
+	                          init_local_state_t init_local_state = nullptr,
+	                          LogicalType varargs = LogicalType(LogicalTypeId::INVALID),
+	                          FunctionSideEffects side_effects = FunctionSideEffects::NO_SIDE_EFFECTS,
+	                          FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING,
+							  bind_lambda_function_t bind_lambda = nullptr);
+
 
 	DUCKDB_API ScalarFunction(vector<LogicalType> arguments, LogicalType return_type, scalar_function_t function,
 	                          bind_scalar_function_t bind = nullptr, dependency_function_t dependency = nullptr,
@@ -89,7 +227,20 @@ public:
 	                          FunctionSideEffects side_effects = FunctionSideEffects::NO_SIDE_EFFECTS,
 	                          FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING,
 	                          bind_lambda_function_t bind_lambda = nullptr);
+							
+	DUCKDB_API ScalarFunction(vector<LogicalType> arguments, LogicalType return_type, scalar_function_t function,
+							  ScalarFunctionInfo &&function_info, 
+	                          bind_scalar_function_t bind = nullptr, dependency_function_t dependency = nullptr,
+	                          function_statistics_t statistics = nullptr, init_local_state_t init_local_state = nullptr,
+	                          LogicalType varargs = LogicalType(LogicalTypeId::INVALID),
+	                          FunctionSideEffects side_effects = FunctionSideEffects::NO_SIDE_EFFECTS,
+	                          FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING,
+							  bind_lambda_function_t bind_lambda = nullptr);					
 
+	// ScalarFunction(const ScalarFunction &other): function(other.function), bind(other.bind), init_local_state(other.init_local_state), 
+	// 	dependency(other.dependency), statistics(other.statistics), serialize(other.serialize), deserialize(other.deserialize), 
+	// 	format_serialize(other.format_serialize), format_deserialize(other.format_deserialize), function_info(other.function_info), 
+	// 	has_scalar_function_info(other.has_scalar_function_info), BaseScalarFunction(other) {}
 	//! The main scalar function to execute
 	scalar_function_t function;
 	//! The bind function (if any)
@@ -106,12 +257,16 @@ public:
 	function_serialize_t serialize;
 	function_deserialize_t deserialize;
 
+	bool has_scalar_function_info = false;
+	ScalarFunctionInfo function_info;
+
 	DUCKDB_API bool operator==(const ScalarFunction &rhs) const;
 	DUCKDB_API bool operator!=(const ScalarFunction &rhs) const;
 
 	DUCKDB_API bool Equal(const ScalarFunction &rhs) const;
 
 public:
+
 	DUCKDB_API static void NopFunction(DataChunk &input, ExpressionState &state, Vector &result);
 
 	template <class TA, class TR, class OP>
@@ -177,6 +332,46 @@ public:
 		return function;
 	}
 
+	static void GetScalarUnaryFunctionInfoTemplate(LogicalType type, std::vector<string> &template_args) {
+		switch (type.id()) {
+		case LogicalTypeId::TINYINT:
+			template_args = {"int8_t", "int8_t"};
+			break;
+		case LogicalTypeId::SMALLINT:
+			template_args = {"int16_t", "int16_t"};
+			break;
+		case LogicalTypeId::INTEGER:
+			template_args = {"int32_t", "int32_t"};
+			break;
+		case LogicalTypeId::BIGINT:
+			template_args = {"int64_t", "int64_t"};
+			break;
+		case LogicalTypeId::UTINYINT:
+			template_args = {"uint8_t", "uint8_t"};
+			break;
+		case LogicalTypeId::USMALLINT:
+			template_args = {"uint16_t", "uint16_t"};
+			break;
+		case LogicalTypeId::UINTEGER:
+			template_args = {"uint32_t", "uint32_t"};
+			break;
+		case LogicalTypeId::UBIGINT:
+			template_args = {"uint64_t", "uint64_t"};
+			break;
+		case LogicalTypeId::HUGEINT:
+			template_args = {"hugeint_t", "hugeint_t"};
+			break;
+		case LogicalTypeId::FLOAT:
+			template_args = {"float", "float"};
+			break;
+		case LogicalTypeId::DOUBLE:
+			template_args = {"double", "double"};
+			break;
+		default:
+			throw InternalException("Unimplemented type for GetScalarUnaryFunction");
+		}
+	}
+
 	template <class TR, class OP>
 	static scalar_function_t GetScalarUnaryFunctionFixedReturn(LogicalType type) {
 		scalar_function_t function;
@@ -220,5 +415,24 @@ public:
 		return function;
 	}
 };
+
+// class TranspilerScalarFunction : public ScalarFunction {
+// public:
+// 	ScalarFunctionInfo function_info;
+// 	DUCKDB_API TranspilerScalarFunction(string name, vector<LogicalType> arguments, LogicalType return_type,
+// 	                          scalar_function_t function, ScalarFunctionInfo &&function_info, bind_scalar_function_t bind = nullptr,
+// 	                          dependency_function_t dependency = nullptr, function_statistics_t statistics = nullptr,
+// 	                          init_local_state_t init_local_state = nullptr,
+// 	                          LogicalType varargs = LogicalType(LogicalTypeId::INVALID),
+// 	                          FunctionSideEffects side_effects = FunctionSideEffects::NO_SIDE_EFFECTS,
+// 	                          FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING);
+
+// 	DUCKDB_API TranspilerScalarFunction(vector<LogicalType> arguments, LogicalType return_type, scalar_function_t function, ScalarFunctionInfo &&function_info, 
+// 	                          bind_scalar_function_t bind = nullptr, dependency_function_t dependency = nullptr,
+// 	                          function_statistics_t statistics = nullptr, init_local_state_t init_local_state = nullptr,
+// 	                          LogicalType varargs = LogicalType(LogicalTypeId::INVALID),
+// 	                          FunctionSideEffects side_effects = FunctionSideEffects::NO_SIDE_EFFECTS,
+// 	                          FunctionNullHandling null_handling = FunctionNullHandling::DEFAULT_NULL_HANDLING);
+// };
 
 } // namespace duckdb

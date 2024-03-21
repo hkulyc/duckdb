@@ -1,6 +1,6 @@
+#include "duckdb/common/operator/string_cast.hpp"
 #include "duckdb/function/cast/default_casts.hpp"
 #include "duckdb/function/cast/vector_cast_helpers.hpp"
-#include "duckdb/common/operator/string_cast.hpp"
 namespace duckdb {
 
 BoundCastInfo DefaultCasts::DateCastSwitch(BindCastInput &input, const LogicalType &source, const LogicalType &target) {
@@ -8,7 +8,9 @@ BoundCastInfo DefaultCasts::DateCastSwitch(BindCastInput &input, const LogicalTy
 	switch (target.id()) {
 	case LogicalTypeId::VARCHAR:
 		// date to varchar
-		return BoundCastInfo(&VectorCastHelpers::StringCast<date_t, duckdb::StringCast>);
+		return BoundCastInfo(
+		    &VectorCastHelpers::StringCast<date_t, duckdb::StringCast>,
+		    ScalarFunctionInfo("StringCast::Operation", {"date_t"}, {ScalarFunctionInfo::VectorBackWrapper}));
 	case LogicalTypeId::TIMESTAMP:
 	case LogicalTypeId::TIMESTAMP_TZ:
 		// date to timestamp

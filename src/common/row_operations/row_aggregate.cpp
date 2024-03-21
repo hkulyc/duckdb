@@ -83,6 +83,7 @@ void RowOperations::CombineStates(RowOperationsState &state, TupleDataLayout &la
 	for (auto &aggr : layout.GetAggregates()) {
 		D_ASSERT(aggr.function.combine);
 		AggregateInputData aggr_input_data(aggr.GetFunctionData(), state.allocator);
+		// printf("combine is called 3.\n");
 		aggr.function.combine(sources, targets, aggr_input_data, count);
 
 		// Move to the next aggregate states

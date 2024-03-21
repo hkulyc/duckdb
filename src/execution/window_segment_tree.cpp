@@ -534,6 +534,7 @@ void WindowSegmentTreePart::FlushStates(bool combining) {
 	AggregateInputData aggr_input_data(aggr.GetFunctionData(), allocator);
 	if (combining) {
 		statel.Verify(flush_count);
+		// printf("combine is called 4.\n");
 		aggr.function.combine(statel, statep, aggr_input_data, flush_count);
 	} else {
 		leaves.Reference(inputs);

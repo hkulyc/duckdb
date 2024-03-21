@@ -196,14 +196,15 @@ static unique_ptr<FunctionData> ArrayOrListLengthBinaryBind(ClientContext &conte
 }
 
 void LengthFun::RegisterFunction(BuiltinFunctions &set) {
+	// udf_todo
 	ScalarFunction array_length_unary =
 	    ScalarFunction({LogicalType::LIST(LogicalType::ANY)}, LogicalType::BIGINT, nullptr, ArrayOrListLengthBind);
 	ScalarFunctionSet length("length");
 	length.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::BIGINT,
-	                                  ScalarFunction::UnaryFunction<string_t, int64_t, StringLengthOperator>, nullptr,
+	                                  ScalarFunction::UnaryFunction<string_t, int64_t, StringLengthOperator>, ScalarFunctionInfo("StringLengthOperator::Operation", {"string_t", "int64_t"}), nullptr,
 	                                  nullptr, LengthPropagateStats));
 	length.AddFunction(ScalarFunction({LogicalType::BIT}, LogicalType::BIGINT,
-	                                  ScalarFunction::UnaryFunction<string_t, int64_t, BitStringLenOperator>));
+	                                  ScalarFunction::UnaryFunction<string_t, int64_t, BitStringLenOperator>, ScalarFunctionInfo("BitStringLenOperator::Operation", {"string_t", "int64_t"})));
 	length.AddFunction(array_length_unary);
 	set.AddFunction(length);
 	length.name = "len";
@@ -211,30 +212,31 @@ void LengthFun::RegisterFunction(BuiltinFunctions &set) {
 
 	ScalarFunctionSet length_grapheme("length_grapheme");
 	length_grapheme.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::BIGINT,
-	                                           ScalarFunction::UnaryFunction<string_t, int64_t, GraphemeCountOperator>,
+	                                           ScalarFunction::UnaryFunction<string_t, int64_t, GraphemeCountOperator>, ScalarFunctionInfo("GraphemeCountOperator::Operation", {"string_t", "int64_t"}),
 	                                           nullptr, nullptr, LengthPropagateStats));
 	set.AddFunction(length_grapheme);
 
 	ScalarFunctionSet array_length("array_length");
 	array_length.AddFunction(array_length_unary);
+	// udf_todo
 	array_length.AddFunction(ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::BIGINT},
 	                                        LogicalType::BIGINT, nullptr, ArrayOrListLengthBinaryBind));
 	set.AddFunction(array_length);
 
 	set.AddFunction(ScalarFunction("strlen", {LogicalType::VARCHAR}, LogicalType::BIGINT,
-	                               ScalarFunction::UnaryFunction<string_t, int64_t, StrLenOperator>));
+	                               ScalarFunction::UnaryFunction<string_t, int64_t, StrLenOperator>, ScalarFunctionInfo("StrLenOperator::Operation", {"string_t", "int64_t"})));
 	ScalarFunctionSet bit_length("bit_length");
 	bit_length.AddFunction(ScalarFunction({LogicalType::VARCHAR}, LogicalType::BIGINT,
-	                                      ScalarFunction::UnaryFunction<string_t, int64_t, BitLenOperator>));
+	                                      ScalarFunction::UnaryFunction<string_t, int64_t, BitLenOperator>, ScalarFunctionInfo("BitLenOperator::Operation", {"string_t", "int64_t"})));
 	bit_length.AddFunction(ScalarFunction({LogicalType::BIT}, LogicalType::BIGINT,
-	                                      ScalarFunction::UnaryFunction<string_t, int64_t, BitStringLenOperator>));
+	                                      ScalarFunction::UnaryFunction<string_t, int64_t, BitStringLenOperator>, ScalarFunctionInfo("BitStringLenOperator::Operation", {"string_t", "int64_t"})));
 	set.AddFunction(bit_length);
 	// length for BLOB type
 	ScalarFunctionSet octet_length("octet_length");
 	octet_length.AddFunction(ScalarFunction({LogicalType::BLOB}, LogicalType::BIGINT,
-	                                        ScalarFunction::UnaryFunction<string_t, int64_t, StrLenOperator>));
+	                                        ScalarFunction::UnaryFunction<string_t, int64_t, StrLenOperator>, ScalarFunctionInfo("StrLenOperator::Operation", {"string_t", "int64_t"})));
 	octet_length.AddFunction(ScalarFunction({LogicalType::BIT}, LogicalType::BIGINT,
-	                                        ScalarFunction::UnaryFunction<string_t, int64_t, OctetLenOperator>));
+	                                        ScalarFunction::UnaryFunction<string_t, int64_t, OctetLenOperator>, ScalarFunctionInfo("OctetLenOperator::Operation", {"string_t", "int64_t"})));
 	set.AddFunction(octet_length);
 }
 
