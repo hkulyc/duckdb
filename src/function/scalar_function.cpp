@@ -21,11 +21,12 @@ ScalarFunction::ScalarFunction(string name, vector<LogicalType> arguments, Logic
                                scalar_function_t function, ScalarFunctionInfo &&function_info, bind_scalar_function_t bind,
                                dependency_function_t dependency, function_statistics_t statistics,
                                init_local_state_t init_local_state, LogicalType varargs,
-                               FunctionSideEffects side_effects, FunctionNullHandling null_handling)
+                               FunctionSideEffects side_effects, FunctionNullHandling null_handling,
+							   bind_lambda_function_t bind_lambda)
     : BaseScalarFunction(std::move(name), std::move(arguments), std::move(return_type), side_effects,
                          std::move(varargs), null_handling),
       function(std::move(function)), function_info(std::move(function_info)), bind(bind), init_local_state(init_local_state), dependency(dependency),
-      statistics(statistics), serialize(nullptr), deserialize(nullptr) {
+      statistics(statistics), bind_lambda(bind_lambda), serialize(nullptr), deserialize(nullptr) {
 	has_scalar_function_info = true;
 }
 
@@ -42,9 +43,9 @@ ScalarFunction::ScalarFunction(vector<LogicalType> arguments, LogicalType return
                                ScalarFunctionInfo &&function_info, bind_scalar_function_t bind, dependency_function_t dependency,
                                function_statistics_t statistics, init_local_state_t init_local_state,
                                LogicalType varargs, FunctionSideEffects side_effects,
-                               FunctionNullHandling null_handling)
+                               FunctionNullHandling null_handling, bind_lambda_function_t bind_lambda)
     : ScalarFunction(string(), std::move(arguments), std::move(return_type), std::move(function), std::move(function_info), bind, dependency,
-                     statistics, init_local_state, std::move(varargs), side_effects, null_handling) {
+                     statistics, init_local_state, std::move(varargs), side_effects, null_handling, bind_lambda) {
 }
 
 bool ScalarFunction::operator==(const ScalarFunction &rhs) const {
