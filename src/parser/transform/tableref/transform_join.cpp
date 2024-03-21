@@ -82,7 +82,7 @@ unique_ptr<TableRef> Transformer::TransformJoin(duckdb_libpgquery::PGJoinExpr &r
 		auto select = make_uniq<SelectStatement>();
 		select->node = std::move(select_node);
 		auto subquery = make_uniq<SubqueryRef>(std::move(select));
-		SetQueryLocation(*subquery, root.location);
+		// SetQueryLocation(*subquery, root.location);
 		// apply the alias to that subquery
 		subquery->alias = TransformAlias(root.alias, subquery->column_name_alias);
 		return std::move(subquery);
