@@ -364,6 +364,9 @@ public:
 		case LogicalTypeId::HUGEINT:
 			template_args = {"hugeint_t", "hugeint_t"};
 			break;
+		case LogicalTypeId::UHUGEINT:
+			template_args = {"uhugeint_t", "uhugeint_t"};
+			break;
 		case LogicalTypeId::FLOAT:
 			template_args = {"float", "float"};
 			break;

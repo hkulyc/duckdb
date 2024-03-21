@@ -77,6 +77,9 @@ void GetScalarIntegerFunctionInfoTemplate(PhysicalType type, std::vector<std::st
 	case PhysicalType::INT128:
 		template_args = {"hugeint_t", "hugeint_t", "hugeint_t"};
 		break;
+	case PhysicalType::UINT128:
+		template_args = {"uhugeint_t", "uhugeint_t", "uhugeint_t"};
+		break;
 	case PhysicalType::UINT8:
 		template_args = {"uint8_t", "uint8_t", "uint8_t"};
 		break;
@@ -1026,10 +1029,10 @@ static scalar_function_t GetBinaryFunctionIgnoreZero(const LogicalType &type, Sc
 	case LogicalTypeId::HUGEINT:
 		function_info.template_args = {"hugeint_t", "hugeint_t", "hugeint_t"};
 		function_info.special_handling.push_back(ScalarFunctionInfo::BinaryZeroIsNullHugeintWrapper);
-		return BinaryScalarFunctionIgnoreZero<hugeint_t, hugeint_t, hugeint_t, OP, BinaryZeroIsNullHugeintWrapper>;
+		return BinaryScalarFunctionIgnoreZero<hugeint_t, hugeint_t, hugeint_t, OP>;
 	case LogicalTypeId::UHUGEINT:
 		function_info.template_args = {"uhugeint_t", "uhugeint_t", "uhugeint_t"};
-		function_info.special_handling.push_back(ScalarFunctionInfo::BinaryZeroIsNullWrapper);
+		function_info.special_handling.push_back(ScalarFunctionInfo::BinaryZeroIsNullHugeintWrapper);
 		return BinaryScalarFunctionIgnoreZero<uhugeint_t, uhugeint_t, uhugeint_t, OP>;
 	case LogicalTypeId::FLOAT:
 		function_info.template_args = {"float", "float", "float"};
