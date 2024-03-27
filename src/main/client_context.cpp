@@ -520,7 +520,8 @@ unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query, bool
 	return plan;
 }
 
-unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query, bool disableColumnBinding, shared_ptr<Binder>& plannerBinder) {
+unique_ptr<LogicalOperator> ClientContext::ExtractPlan(const string &query, bool disableColumnBinding,
+                                                       shared_ptr<Binder> &plannerBinder) {
 	auto lock = LockContext();
 
 	auto statements = ParseStatementsInternal(*lock, query);

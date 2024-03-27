@@ -11,6 +11,8 @@
 #include "duckdb/common/chrono.hpp"
 #include "duckdb/common/helper.hpp"
 
+#include <iostream>
+
 namespace duckdb {
 
 //! The profiler can be used to measure elapsed time

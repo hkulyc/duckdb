@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "duckdb/main/query_result.hpp"
 #include "duckdb/common/enums/pending_execution_result.hpp"
 #include "duckdb/execution/executor.hpp"
+#include "duckdb/main/query_result.hpp"
 
 namespace duckdb {
 class ClientContext;

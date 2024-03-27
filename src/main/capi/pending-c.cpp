@@ -1,9 +1,9 @@
-#include "duckdb/main/capi/capi_internal.hpp"
-#include "duckdb/main/query_result.hpp"
-#include "duckdb/main/pending_query_result.hpp"
-#include "duckdb/common/preserved_error.hpp"
 #include "duckdb/common/case_insensitive_map.hpp"
 #include "duckdb/common/optional_ptr.hpp"
+#include "duckdb/common/preserved_error.hpp"
+#include "duckdb/main/capi/capi_internal.hpp"
+#include "duckdb/main/pending_query_result.hpp"
+#include "duckdb/main/query_result.hpp"
 
 using duckdb::case_insensitive_map_t;
 using duckdb::make_uniq;

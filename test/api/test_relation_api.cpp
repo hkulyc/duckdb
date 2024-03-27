@@ -1,6 +1,6 @@
 #include "catch.hpp"
-#include "duckdb/common/file_system.hpp"
 #include "duckdb/common/enums/joinref_type.hpp"
+#include "duckdb/common/file_system.hpp"
 #include "iostream"
 #include "test_helpers.hpp"
 
