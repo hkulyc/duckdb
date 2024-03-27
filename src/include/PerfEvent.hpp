@@ -70,26 +70,16 @@ struct PerfEvent {
 	std::chrono::time_point<std::chrono::steady_clock> stopTime;
 
 	PerfEvent() {
-		registerCounter("cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES);
-		registerCounter("kcycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES, KERNEL);
 		registerCounter("instructions", PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS);
-		registerCounter("L1I-accesses", PERF_TYPE_HW_CACHE,
-		                PERF_COUNT_HW_CACHE_L1I | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
-		                    (PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16));
-		registerCounter("L1I-misses", PERF_TYPE_HW_CACHE,
-		                PERF_COUNT_HW_CACHE_L1I | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
-		                    (PERF_COUNT_HW_CACHE_RESULT_MISS << 16));
-		registerCounter("L1D-accesses", PERF_TYPE_HW_CACHE,
-		                PERF_COUNT_HW_CACHE_L1D | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
-		                    (PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16));
-		registerCounter("L1D-misses", PERF_TYPE_HW_CACHE,
-		                PERF_COUNT_HW_CACHE_L1D | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
-		                    (PERF_COUNT_HW_CACHE_RESULT_MISS << 16));
-		registerCounter("LLC-accesses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_RESULT_ACCESS);
-		registerCounter("LLC-misses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES);
 		registerCounter("branches", PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS);
-		registerCounter("branch-misses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES);
-		registerCounter("task-clock", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_TASK_CLOCK);
+		registerCounter("mispredicts", PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES);
+		registerCounter("i1-misses", PERF_TYPE_HW_CACHE,
+		                PERF_COUNT_HW_CACHE_L1I | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
+		                    (PERF_COUNT_HW_CACHE_RESULT_MISS << 16));
+		registerCounter("d1-misses", PERF_TYPE_HW_CACHE,
+		                PERF_COUNT_HW_CACHE_L1D | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
+		                    (PERF_COUNT_HW_CACHE_RESULT_MISS << 16));
+		registerCounter("llc-misses", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES);
 
 		// additional counters can be found in linux/perf_event.h
 		for (unsigned i = 0; i < events.size(); i++) {
@@ -150,51 +140,7 @@ struct PerfEvent {
 	}
 
 	double getDuration() {
-		return std::chrono::duration<double>(stopTime - startTime).count();
-	}
-
-	double getIPC() {
-		return getCounter("instructions") / getCounter("cycles");
-	}
-
-	double getCPUs() {
-		return getCounter("task-clock") / (getDuration() * 1e9);
-	}
-
-	double getGHz() {
-		return getCounter("cycles") / getCounter("task-clock");
-	}
-
-	double getL1ICacheMissRate() {
-		if (getCounter("L1I-accesses") == 0) {
-			return 0;
-		}
-		return (getCounter("L1I-misses") / getCounter("L1I-accesses")) * 100.0;
-	}
-
-	double getL1DCacheMissRate() {
-		if (getCounter("L1D-accesses") == 0) {
-			return 0;
-		}
-		return (getCounter("L1D-misses") / getCounter("L1D-accesses")) * 100.0;
-	}
-
-	double getLLCMissRate() {
-		if (getCounter("LLC-accesses") == 0) {
-			return 0;
-		}
-		return (getCounter("LLC-misses") / getCounter("LLC-accesses")) * 100.0;
-	}
-
-	double getBranchPercentage() {
-		return (getCounter("branches") / getCounter("instructions")) * 100.0;
-	}
-
-	double getBranchMispredictionRate() {
-		if (getCounter("branches") == 0) {
-			return 0;
-		}
-		return (getCounter("branch-misses") / getCounter("branches")) * 100.0;
+		return std::chrono::duration<double>(stopTime - startTime).count() * 1000;
 	}
 
 	double getCounter(const std::string &name) {
@@ -215,7 +161,7 @@ struct PerfEvent {
 	static void printCounter(std::ostream &headerOut, std::ostream &dataOut, std::string name, T counterValue,
 	                         bool addComma = true) {
 		std::stringstream stream;
-		stream << std::fixed << std::setprecision(2) << counterValue;
+		stream << std::fixed << std::setprecision(0) << counterValue;
 		PerfEvent::printCounter(headerOut, dataOut, name, stream.str(), addComma);
 	}
 
@@ -231,26 +177,13 @@ struct PerfEvent {
 		if (!events.size())
 			return;
 
-		// print all metrics
-		for (unsigned i = 0; i < events.size(); i++) {
-			printCounter(headerOut, dataOut, names[i],
-			             events[i].readCounter() / static_cast<double>(normalizationConstant));
-		}
-
-		// printCounter(headerOut, dataOut, "scale", normalizationConstant);
-
-		// derived metrics
-		printCounter(headerOut, dataOut, "IPC", getIPC());
-		printCounter(headerOut, dataOut, "CPUs", getCPUs());
-		printCounter(headerOut, dataOut, "GHz", getGHz());
-
-		// my extra derived metrics
-		printCounter(headerOut, dataOut, "L1I Cache Miss Rate (%)", getL1ICacheMissRate());
-		printCounter(headerOut, dataOut, "L1D Cache Miss Rate (%)", getL1DCacheMissRate());
-		printCounter(headerOut, dataOut, "LLC Cache Miss Rate (%)", getLLCMissRate());
-		printCounter(headerOut, dataOut, "Branch Misprediction Rate (%)", getBranchMispredictionRate());
-		printCounter(headerOut, dataOut, "Percentage Branches (%)", getBranchPercentage());
-		printCounter(headerOut, dataOut, "Duration (s)", getDuration(), false);
+		printCounter(headerOut, dataOut, "instructions", getCounter("instructions"));
+		printCounter(headerOut, dataOut, "branches", getCounter("branches"));
+		printCounter(headerOut, dataOut, "mispredicts", getCounter("mispredicts"));
+		printCounter(headerOut, dataOut, "I1 misses", getCounter("i1-misses"));
+		printCounter(headerOut, dataOut, "D1 misses", getCounter("d1-misses"));
+		printCounter(headerOut, dataOut, "LLC misses", getCounter("d1-misses"));
+		printCounter(headerOut, dataOut, "Duration (ms)", getDuration(), false);
 	}
 };
 
