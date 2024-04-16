@@ -63,7 +63,7 @@ public:
 	bool allCombinable = true;
 
 	bool ParallelSink() const override {
-		return true;
+		return true && allCombinable;
 	}
 
 	bool SinkOrderDependent() const override {
