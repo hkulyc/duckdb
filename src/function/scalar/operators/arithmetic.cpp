@@ -631,12 +631,12 @@ static unique_ptr<BaseStatistics> NegateBindStatistics(ClientContext &context, F
 
 ScalarFunction SubtractFun::GetFunction(const LogicalType &type) {
 	if (type.id() == LogicalTypeId::INTERVAL) {
-		return ScalarFunction("-", {type}, type, ScalarFunction::UnaryFunction<interval_t, interval_t, NegateOperator>, ScalarFunctionInfo("NegateOperator", {"interval_t", "interval_t"}));
+		return ScalarFunction("-", {type}, type, ScalarFunction::UnaryFunction<interval_t, interval_t, NegateOperator>, ScalarFunctionInfo("NegateOperator::Operation", {"interval_t"}));
 	} else if (type.id() == LogicalTypeId::DECIMAL) {
 		return ScalarFunction("-", {type}, type, nullptr, DecimalNegateBind, nullptr, NegateBindStatistics);
 	} else {
 		D_ASSERT(type.IsNumeric());
-		ScalarFunctionInfo function_info("NegateOperator");
+		ScalarFunctionInfo function_info("NegateOperator::Operation");
 		ScalarFunction::GetScalarUnaryFunctionInfoTemplate(type, function_info.template_args);
 		return ScalarFunction("-", {type}, type, ScalarFunction::GetScalarUnaryFunction<NegateOperator>(type), std::move(function_info), nullptr,
 		                      nullptr, NegateBindStatistics);
